@@ -1,0 +1,8 @@
+{
+  "env": {
+    "JIRA_URL": "https://your-domain.atlassian.net",
+    "JIRA_EMAIL": "you@example.com",
+    "JIRA_TOKEN": "your-jira-api-token",
+    "JIRA_PROJECT": "YOUR_PROJECT_KEY"
+  }
+}

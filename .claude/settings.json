@@ -5,57 +5,55 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/pm-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/pm-agent.sh",
             "async": true,
             "asyncRewake": true,
-            "timeout": 120,
-            "statusMessage": "Product Manager reviewing features...",
-            "rewakeSummary": "Product Manager found issues"
+            "timeout": 180,
+            "statusMessage": "PM Agent — gap analysis & story creation...",
+            "rewakeSummary": "PM Agent: stories created in Jira"
           },
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/ux-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/architect-agent.sh",
             "async": true,
             "asyncRewake": true,
-            "timeout": 120,
-            "statusMessage": "UX Designer reviewing flows...",
-            "rewakeSummary": "UX Designer found issues"
+            "timeout": 180,
+            "statusMessage": "Architect + QA — refining backlog stories...",
+            "rewakeSummary": "Architect Agent: stories refined"
           },
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/ui-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/ux-agent.sh",
             "async": true,
-            "asyncRewake": true,
+            "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "UI Expert reviewing design...",
-            "rewakeSummary": "UI Expert found issues"
+            "statusMessage": "UX Agent — adding flow specs to in-progress stories..."
           },
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/architect-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/ui-agent.sh",
             "async": true,
-            "asyncRewake": true,
+            "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "Tech Architect reviewing structure...",
-            "rewakeSummary": "Tech Architect found issues"
+            "statusMessage": "UI Agent — adding visual specs to in-progress stories..."
           },
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/qa-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/qa-agent.sh",
             "async": true,
             "asyncRewake": true,
-            "timeout": 120,
-            "statusMessage": "QA Lead testing scenarios...",
-            "rewakeSummary": "QA Lead found issues"
+            "timeout": 240,
+            "statusMessage": "QA Lead — creating test cases & running checks...",
+            "rewakeSummary": "QA Lead: stories failed — back to dev"
           },
           {
             "type": "command",
-            "command": "/home/claude/repo/.claude/hooks/deploy-agent.sh",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/deploy-agent.sh",
             "async": true,
             "asyncRewake": true,
             "timeout": 120,
-            "statusMessage": "Deployment Specialist checking readiness...",
-            "rewakeSummary": "Deployment Specialist found issues"
+            "statusMessage": "Deploy Specialist — checking readiness & tagging releases...",
+            "rewakeSummary": "Deploy Agent: deployment issue found"
           }
         ]
       }

@@ -1,20 +1,59 @@
 #!/usr/bin/env bash
-# UI Expert Agent — reviews visual consistency and responsive design
-FINDINGS=$(claude --print \
-  "You are a UI Expert reviewing the SprintOps Console at /home/claude/repo.
+# UI Expert Agent
+# Reviews In Progress stories and adds component + design token spec to Jira
 
-Read colors_and_type.css and sprintops-shared.jsx. Spot-check sprintops-layout.jsx.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/jira.sh"
 
-Report ONLY if you find critical UI issues: hardcoded colors that bypass the design token system, broken dark mode support, elements that overflow on narrow viewports, or inconsistent spacing/radius values.
+STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22In+Progress%22&maxResults=10&fields=summary")
+COUNT=$(echo "$STORIES" | jq '.issues | length')
 
-If the UI looks consistent, output nothing.
-If there are critical issues, output a short bullet list (max 5 items, plain text).
-Be specific — name the file, line area, and the issue." \
-  --allowedTools "Read,Glob,Grep" \
-  --no-conversation 2>/dev/null)
+[ "$COUNT" -eq 0 ] && exit 0
 
-if [ -n "$FINDINGS" ]; then
-  echo "$FINDINGS"
-  exit 2
-fi
+echo "UI Agent: $COUNT in-progress stories to spec"
+
+echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
+
+  COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=50")
+  HAS_UI=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' | grep -c '\[UI\]' || true)
+  [ "$HAS_UI" -gt 0 ] && continue
+
+  UI_SPEC=$(claude --print \
+"You are a UI Expert for SprintOps Console. The design system uses CSS variables from colors_and_type.css:
+--color-primary, --color-bg-surface, --color-bg-base, --color-bg-muted, --color-border,
+--color-text-primary/secondary/muted, --color-success/warning/danger/info (each with -bg and -fg variants),
+--radius-sm/md/lg/xl/2xl, --shadow-sm/soft/lg, --space-1 through --space-16
+
+Story: $SUMMARY
+
+Output EXACTLY this format:
+
+DESIGN_TOKENS:
+- <token name>: <how to use it for this story>
+
+VISUAL_SPEC:
+- <specific padding/radius/shadow rule>
+- <dark mode consideration>
+- <responsive breakpoint note>
+
+DONT_DO:
+- <common mistake to avoid>" \
+    --allowedTools "Read" \
+    --no-conversation 2>/dev/null)
+
+  COMMENT="[UI EXPERT] Visual Specification:
+
+Design Tokens:
+$(echo "$UI_SPEC" | sed -n '/^DESIGN_TOKENS:/,/^VISUAL_SPEC:/p' | grep '^-' | sed 's/^- /🎨 /')
+
+Visual Rules:
+$(echo "$UI_SPEC" | sed -n '/^VISUAL_SPEC:/,/^DONT_DO:/p' | grep '^-' | sed 's/^- /• /')
+
+Avoid:
+$(echo "$UI_SPEC" | sed -n '/^DONT_DO:/,$p' | grep '^-' | sed 's/^- /✗ /')"
+
+  jira_comment "$KEY" "$COMMENT"
+  echo "UI Agent: Added visual spec to $KEY"
+
+done
 exit 0
