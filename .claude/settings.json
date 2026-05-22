@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/pm-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "Product Manager reviewing features...",
+            "rewakeSummary": "Product Manager found issues"
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/ux-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "UX Designer reviewing flows...",
+            "rewakeSummary": "UX Designer found issues"
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/ui-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "UI Expert reviewing design...",
+            "rewakeSummary": "UI Expert found issues"
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/architect-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "Tech Architect reviewing structure...",
+            "rewakeSummary": "Tech Architect found issues"
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/qa-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "QA Lead testing scenarios...",
+            "rewakeSummary": "QA Lead found issues"
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/repo/.claude/hooks/deploy-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "Deployment Specialist checking readiness...",
+            "rewakeSummary": "Deployment Specialist found issues"
+          }
+        ]
+      }
+    ]
+  }
+}
