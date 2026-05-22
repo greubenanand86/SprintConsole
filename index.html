@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SprintOps Console</title>
+
+<!-- FOUC guard -->
+<script>
+  try { if (localStorage.getItem('sprintops_theme') === 'dark') document.documentElement.classList.add('dark'); } catch (_) {}
+</script>
+
+<link rel="stylesheet" href="colors_and_type.css">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: var(--font-sans); background: var(--color-bg-base); color: var(--color-text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  /* Lucide icon animations */
+  @keyframes spin  { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  .spin svg, svg.spin, i.spin svg { animation: spin 1s linear infinite; }
+
+  /* Responsive layout */
+  .ds-sidebar-desktop { display: flex !important; }
+  .ds-bottom-nav      { display: none !important; }
+  @media (max-width: 768px) {
+    .ds-sidebar-desktop { display: none !important; }
+    .ds-bottom-nav      { display: flex !important; }
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+  /* Focus ring */
+  *:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+
+  /* Number input — remove spinners */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* Table cells */
+  th, td { padding: 0; }
+
+  /* Smooth transitions for theme switch */
+  body, header, aside, main { transition: background-color .25s, border-color .25s; }
+
+  /* Hide scrollbar on secondary tab nav */
+  nav::-webkit-scrollbar { display: none; }
+
+  /* Prevent text select on button clicks */
+  button { user-select: none; -webkit-user-select: none; }
+</style>
+
+<!-- React 18 + Babel + Lucide (vendored locally) -->
+<script src="vendor/react.development.js"></script>
+<script src="vendor/react-dom.development.js"></script>
+<script src="vendor/babel.min.js"></script>
+<script src="vendor/lucide.min.js"></script>
+
+</head>
+<body>
+<div id="root"></div>
+
+<!-- 1. Data (plain JS) -->
+<script src="sprintops-data.js"></script>
+
+<!-- 2. Shared components → exports to window -->
+<script type="text/babel" src="sprintops-shared.jsx"></script>
+
+<!-- 3. Layout chrome → exports to window -->
+<script type="text/babel" src="sprintops-layout.jsx"></script>
+
+<!-- 4. Page modules → exports to window -->
+<script type="text/babel" src="sprintops-readiness.jsx"></script>
+<script type="text/babel" src="sprintops-estimation.jsx"></script>
+<script type="text/babel" src="sprintops-release.jsx"></script>
+<script type="text/babel" src="sprintops-config.jsx"></script>
+
+<!-- 5. Tweaks panel starter → exports TweaksPanel, useTweaks, Tweak* to window -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- 6. App root (mounts React) -->
+<script type="text/babel" src="sprintops-app.jsx"></script>
+
+</body>
+</html>
