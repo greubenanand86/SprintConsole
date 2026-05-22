@@ -1,0 +1,254 @@
+/* =============================================================================
+   SprintOps Console — Colors & Type
+   Mirrors the Tailwind + CSS-var token system used in src/index.css.
+   Light (default) + dark (.dark on documentElement) themes.
+   ============================================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- Surfaces & text ---------- */
+  --color-bg-base:      #f8fafc; /* slate-50  – app canvas */
+  --color-bg-surface:   #ffffff; /*           – cards, sidebars, top bar */
+  --color-bg-muted:     #f1f5f9; /* slate-100 – inset surfaces, expanded rows */
+
+  --color-text-primary:    #0f172a; /* slate-900 */
+  --color-text-secondary:  #475569; /* slate-600 */
+  --color-text-muted:      #64748b; /* slate-500 */
+
+  --color-border:        #e2e8f0; /* slate-200 */
+  --color-border-muted:  #f1f5f9; /* slate-100 */
+
+  --color-input-bg:      #ffffff;
+  --color-input-border:  #cbd5e1; /* slate-300 */
+  --color-input-text:    #0f172a;
+
+  /* ---------- Brand / interactive ---------- */
+  --color-primary:        #2563eb; /* blue-600 */
+  --color-primary-hover:  #1d4ed8; /* blue-700 */
+  --color-primary-fg:     #ffffff;
+
+  --color-secondary:        #f1f5f9; /* slate-100 */
+  --color-secondary-hover:  #e2e8f0; /* slate-200 */
+  --color-secondary-fg:     #0f172a;
+
+  /* ---------- Semantic / status ---------- */
+  --color-success:     #16a34a; /* green-600 */
+  --color-success-bg:  #dcfce7; /* green-100 */
+  --color-success-fg:  #166534; /* green-800 */
+
+  --color-warning:     #d97706; /* amber-600 */
+  --color-warning-bg:  #fef3c7; /* amber-100 */
+  --color-warning-fg:  #92400e; /* amber-800 */
+
+  --color-danger:      #dc2626; /* red-600 */
+  --color-danger-bg:   #fee2e2; /* red-100 */
+  --color-danger-fg:   #991b1b; /* red-800 */
+
+  --color-info:        #2563eb; /* blue-600 */
+  --color-info-bg:     #dbeafe; /* blue-100 */
+  --color-info-fg:     #1e40af; /* blue-800 */
+
+  --color-focus-ring:  #93c5fd; /* blue-300 */
+
+  --color-progress-track: #e2e8f0;
+  --color-progress-fill:  #2563eb;
+
+  /* ---------- Workflow-state pill colors (utils/stateColors.ts) ---------- */
+  /* blueStates  → ready-for-development, in-progress, active, code-review, resolved */
+  /* purpleStates → under-refinement, design-in-progress (mapped to neutral secondary) */
+  /* orangeStates → ready-for-testing, uat-in-progress, test-in-progress */
+  /* greenStates  → ready-for-production, production-deployed, closed */
+
+  /* ---------- Spacing & sizing ---------- */
+  --space-1: 4px;   /* 0.25rem  */
+  --space-2: 8px;   /* 0.5rem   – 8pt baseline */
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm:  4px;
+  --radius-md:  6px;   /* rounded-md  – task action cells, small badges */
+  --radius-lg:  8px;   /* rounded-lg  – buttons, inputs, sidebar items */
+  --radius-xl:  12px;  /* rounded-xl  – cards, rows, dropdowns */
+  --radius-2xl: 16px;  /* rounded-2xl – section/accordion cards */
+  --radius-full: 9999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm:   0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+                 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* the signature card shadow */
+  --shadow-lg:   0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* ---------- Layout ---------- */
+  --topbar-height:        64px;
+  --sidebar-width:        256px;
+  --sidebar-width-collapsed: 80px;
+  --content-max-width:    1600px;
+  --bottom-nav-height:    64px; /* mobile only */
+
+  /* ---------- Motion ---------- */
+  --duration-fast:   150ms;
+  --duration-base:   200ms;
+  --duration-slow:   300ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1); /* tailwind default */
+
+  /* ---------- Typography ---------- */
+  /* No custom webfonts ship in the repo. The project uses Tailwind's
+     default `font-sans` stack; we recommend Geist as the closest open
+     substitute and load it from Google Fonts. */
+  --font-sans:
+    "Geist",
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "Geist Mono",
+    ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas",
+    "Liberation Mono", "Courier New", monospace;
+
+  --font-weight-normal:    400;
+  --font-weight-medium:    500;
+  --font-weight-semibold:  600;
+  --font-weight-bold:      700;
+
+  --leading-tight:   1.2;
+  --leading-snug:    1.35;
+  --leading-normal:  1.5;
+
+  --tracking-tight: -0.01em;
+  --tracking-wide:  0.05em;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-bg-base:     #0f172a; /* slate-900 */
+  --color-bg-surface:  #1e293b; /* slate-800 */
+  --color-bg-muted:    #334155; /* slate-700 */
+
+  --color-text-primary:    #f8fafc;
+  --color-text-secondary:  #94a3b8;
+  --color-text-muted:      #64748b;
+
+  --color-border:        #334155;
+  --color-border-muted:  #1e293b;
+
+  --color-input-bg:      #0f172a;
+  --color-input-border:  #475569;
+  --color-input-text:    #f8fafc;
+
+  --color-primary:        #3b82f6; /* blue-500 — slightly lighter for dark bg */
+  --color-primary-hover:  #60a5fa;
+  --color-primary-fg:     #ffffff;
+
+  --color-secondary:        #334155;
+  --color-secondary-hover:  #475569;
+  --color-secondary-fg:     #f8fafc;
+
+  --color-success:     #22c55e;
+  --color-success-bg:  #052e16;
+  --color-success-fg:  #4ade80;
+
+  --color-warning:     #f59e0b;
+  --color-warning-bg:  #451a03;
+  --color-warning-fg:  #fbbf24;
+
+  --color-danger:      #ef4444;
+  --color-danger-bg:   #450a0a;
+  --color-danger-fg:   #f87171;
+
+  --color-info:        #3b82f6;
+  --color-info-bg:     #1e3a8a;
+  --color-info-fg:     #60a5fa;
+
+  --color-focus-ring:  #3b82f6;
+
+  --color-progress-track: #334155;
+  --color-progress-fill:  #3b82f6;
+}
+
+/* =============================================================================
+   Semantic type ramp — mirrors usage seen in PageHeader, SectionCard, badges
+   ============================================================================= */
+
+body, .ds-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background: var(--color-bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ds-h1 {
+  /* PageHeader title */
+  font-size: 24px;            /* text-2xl */
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+}
+
+.ds-h2 {
+  /* AccordionCard / SectionCard section heading */
+  font-size: 18px;            /* text-lg */
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--color-text-primary);
+}
+
+.ds-h3 {
+  /* Empty-state and modal headings */
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-snug);
+  color: var(--color-text-primary);
+}
+
+.ds-body-md {
+  font-size: 14px;            /* text-sm */
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+}
+
+.ds-body-sm {
+  font-size: 13px;
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.ds-caption {
+  font-size: 12px;            /* text-xs */
+  line-height: var(--leading-snug);
+  color: var(--color-text-secondary);
+}
+
+.ds-micro {
+  /* "Section eyebrow" / "PARENT ITEM" labels — appear all over the app */
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-secondary);
+}
+
+.ds-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus ring — replicates Tailwind base ring used app-wide */
+.ds-focus:focus-visible,
+*:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px var(--color-primary);
+}

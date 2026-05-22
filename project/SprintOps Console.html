@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SprintOps Console</title>
+
+<!-- FOUC guard -->
+<script>
+  try { if (localStorage.getItem('sprintops_theme') === 'dark') document.documentElement.classList.add('dark'); } catch (_) {}
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="colors_and_type.css">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: var(--font-sans); background: var(--color-bg-base); color: var(--color-text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  /* Lucide icon animations */
+  @keyframes spin  { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  .spin svg, svg.spin, i.spin svg { animation: spin 1s linear infinite; }
+
+  /* Responsive layout */
+  .ds-sidebar-desktop { display: flex !important; }
+  .ds-bottom-nav      { display: none !important; }
+  @media (max-width: 768px) {
+    .ds-sidebar-desktop { display: none !important; }
+    .ds-bottom-nav      { display: flex !important; }
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+  /* Focus ring */
+  *:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 4px; }
+
+  /* Number input — remove spinners */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* Table cells */
+  th, td { padding: 0; }
+
+  /* Smooth transitions for theme switch */
+  body, header, aside, main { transition: background-color .25s, border-color .25s; }
+
+  /* Hide scrollbar on secondary tab nav */
+  nav::-webkit-scrollbar { display: none; }
+
+  /* Prevent text select on button clicks */
+  button { user-select: none; -webkit-user-select: none; }
+</style>
+
+<!-- React 18 (pinned + integrity) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+  integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+  integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Lucide icons (UMD) -->
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+
+</head>
+<body>
+<div id="root"></div>
+
+<!-- 1. Data (plain JS) -->
+<script src="sprintops-data.js"></script>
+
+<!-- 2. Shared components → exports to window -->
+<script type="text/babel" src="sprintops-shared.jsx"></script>
+
+<!-- 3. Layout chrome → exports to window -->
+<script type="text/babel" src="sprintops-layout.jsx"></script>
+
+<!-- 4. Page modules → exports to window -->
+<script type="text/babel" src="sprintops-readiness.jsx"></script>
+<script type="text/babel" src="sprintops-estimation.jsx"></script>
+<script type="text/babel" src="sprintops-release.jsx"></script>
+<script type="text/babel" src="sprintops-config.jsx"></script>
+
+<!-- 5. Tweaks panel starter → exports TweaksPanel, useTweaks, Tweak* to window -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- 6. App root (mounts React) -->
+<script type="text/babel" src="sprintops-app.jsx"></script>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 112">
+    <rect width="160" height="112" fill="#0f172a"/>
+    <rect x="0" y="0" width="32" height="112" fill="#1e293b"/>
+    <rect x="0" y="0" width="160" height="18" fill="#1e293b"/>
+    <rect x="8" y="5" width="8" height="8" rx="2" fill="#3b82f6"/>
+    <rect x="4" y="24" width="24" height="6" rx="3" fill="#3b82f6" opacity=".8"/>
+    <rect x="4" y="34" width="24" height="6" rx="3" fill="#334155"/>
+    <rect x="4" y="44" width="24" height="6" rx="3" fill="#334155"/>
+    <rect x="4" y="54" width="24" height="6" rx="3" fill="#334155"/>
+    <rect x="40" y="24" width="112" height="16" rx="4" fill="#1e293b"/>
+    <rect x="40" y="46" width="112" height="14" rx="4" fill="#1e293b"/>
+    <rect x="44" y="50" width="30" height="6" rx="2" fill="#475569"/>
+    <rect x="80" y="50" width="20" height="6" rx="2" fill="#3b82f6" opacity=".5"/>
+    <rect x="40" y="66" width="112" height="14" rx="4" fill="#1e293b"/>
+    <rect x="44" y="70" width="40" height="6" rx="2" fill="#475569"/>
+    <rect x="136" y="70" width="12" height="6" rx="2" fill="#22c55e" opacity=".7"/>
+    <rect x="40" y="86" width="112" height="14" rx="4" fill="#1e293b"/>
+  </svg>
+</template>
+</body>
+</html>
