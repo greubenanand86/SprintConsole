@@ -47,14 +47,24 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   fi
 
   PA_REVIEW=$(claude --print \
-"You are the Product Acceptance Agent for SprintOps Console (Jira Workflow Governance §7).
+"Role: You are the Product Acceptance Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Product Acceptance confirms:
+Task: Confirm this story meets Product Acceptance criteria (§7) — feature solves the intended problem, UX expectations met, Definition of Done satisfied, release quality acceptable.
+
+Inputs:
+- Story: $SUMMARY
+- Prior QA result: ${QA_COMMENT:-Not found}
+- UX specification: ${UX_COMMENT:-Not found}
+- Security review: ${SEC_COMMENT:-Not found}
+- Source files readable via Read, Glob, and Grep tools
+
+Product Acceptance confirms (§7):
 1. Feature solves the intended problem as stated in acceptance criteria
 2. UX expectations are met (clear, low-friction, accessible, recoverable)
 3. Release quality is acceptable (no known blockers, edge cases handled)
 4. Workflows behave correctly end-to-end
-5. Definition of Done criteria are satisfied (§6):
+5. Definition of Done criteria satisfied (§6):
    - Acceptance criteria validated
    - QA verified
    - Accessibility reviewed
@@ -63,15 +73,7 @@ Product Acceptance confirms:
    - Monitoring/logging added where applicable
    - Release notes prepared
 
-Story: $SUMMARY
-
-Prior QA result: ${QA_COMMENT:-Not found}
-UX specification: ${UX_COMMENT:-Not found}
-Security review: ${SEC_COMMENT:-Not found}
-
-Read the implemented .jsx files and assess acceptance.
-
-Output EXACTLY this format:
+Output format — output EXACTLY these fields:
 
 PROBLEM_SOLVED: <YES — clearly solves stated problem|NO — does not match acceptance criteria>
 UX_EXPECTATIONS: <MET|PARTIALLY MET|NOT MET — with reason>
@@ -86,12 +88,20 @@ DOD_STATUS:
 HUMAN_REVIEW_REQUIRED: <YES — high risk/strategic/compliance|NO — standard release>
 VERDICT: <ACCEPTED — move to Ready for Release|REJECTED — back to In Development>
 REJECTION_REASONS:
-- <reason, or N/A if accepted>" \
+- <reason, or N/A if accepted>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
   VERDICT=$(echo "$PA_REVIEW" | grep '^VERDICT:' | sed 's/^VERDICT: //')
   HUMAN_REQUIRED=$(echo "$PA_REVIEW" | grep '^HUMAN_REVIEW_REQUIRED:' | grep -i 'YES' | wc -l | tr -d ' ')
+
+  extract_standard "$PA_REVIEW"
 
   if echo "$VERDICT" | grep -qi 'ACCEPTED'; then
     COMMENT="[PRODUCT ACCEPTANCE] ✅ Accepted — Moving to Ready for Release
@@ -103,7 +113,8 @@ Release Quality: $(echo "$PA_REVIEW" | grep '^RELEASE_QUALITY:' | sed 's/^RELEAS
 Definition of Done:
 $(echo "$PA_REVIEW" | sed -n '/^DOD_STATUS:/,/^HUMAN_REVIEW_REQUIRED:/p' | grep '^-' | sed 's/^- /☑ /')
 
-$([ "$HUMAN_REQUIRED" -gt 0 ] && echo "⚠ Human review recommended — strategic/risk/compliance concern noted.")"
+$([ "$HUMAN_REQUIRED" -gt 0 ] && echo "⚠ Human review recommended — strategic/risk/compliance concern noted.")
+$(standard_fields_block)"
 
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "Ready for Release"
@@ -138,7 +149,8 @@ $REASONS
 Definition of Done gaps:
 $(echo "$PA_REVIEW" | sed -n '/^DOD_STATUS:/,/^HUMAN_REVIEW_REQUIRED:/p' | grep ': NO' | sed 's/^- /☐ /')
 
-Please resolve all rejection reasons before re-submitting for Product Acceptance."
+Please resolve all rejection reasons before re-submitting for Product Acceptance.
+$(standard_fields_block)"
 
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "In Development"

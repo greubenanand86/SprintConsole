@@ -21,22 +21,25 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   [ "$HAS_OBS" -gt 0 ] && continue
 
   OBS_SPEC=$(claude --print \
-"You are an Observability Engineer reviewing a story for SprintOps Console.
-Engineering Constitution §7 mandates: structured logging, error monitoring,
-crash reporting, analytics instrumentation, and release tracking.
+"Role: You are the Observability Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Specify observability requirements for this story — error boundaries, logging, analytics, and empty/error state messages.
 
-Read the relevant .jsx files to understand the implementation context.
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read, Glob, and Grep tools
 
-Check and specify observability requirements for this story. Output EXACTLY this format:
+Engineering Constitution §7 mandates: structured logging, error monitoring, crash reporting, analytics instrumentation, and release tracking.
+
+Output format — output EXACTLY these sections:
 
 ERROR_BOUNDARIES:
 - <where to wrap in React Error Boundary, or 'Not required — no async/remote data'>
 
 LOGGING_SPEC:
 - <what to log and at what level: ERROR / WARN / INFO>
-- <structured fields to include: e.g., userId, storyId, action>
+- <structured fields to include: e.g., storyId, action, component>
 
 ANALYTICS_EVENTS:
 - <user interaction to track, or 'None required'>
@@ -45,7 +48,13 @@ EMPTY_ERROR_STATES:
 - <component: what empty state message to show>
 - <component: what error state message to show>
 
-COMPLIANCE: <PASS — requirements met|FAIL — gaps found>" \
+COMPLIANCE: <PASS — requirements met|FAIL — gaps found>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
@@ -69,6 +78,10 @@ Compliance: ${COMPLIANCE:-REVIEW REQUIRED}
 
 Engineering Constitution §7: Mandatory — structured logging, error monitoring,
 crash reporting, analytics instrumentation, and release tracking."
+
+  extract_standard "$OBS_SPEC"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "Observability Agent: Spec posted for $KEY (${COMPLIANCE:-REVIEW REQUIRED})"

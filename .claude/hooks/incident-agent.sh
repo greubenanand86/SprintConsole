@@ -30,11 +30,16 @@ while IFS='|' read -r KEY SUMMARY PRIORITY STATUS; do
   [ "$HAS_INCIDENT" -gt 0 ] && continue
 
   INCIDENT_ANALYSIS=$(claude --print \
-"You are the Incident Agent for SprintOps Console (Jira Workflow Governance §15).
+"Role: You are the Incident Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Production incident: $SUMMARY
-Priority: $PRIORITY
-Status: $STATUS
+Task: Analyze this production incident, classify its severity, identify root cause, assess rollback options, and document learnings for the postmortem.
+
+Inputs:
+- Incident: $SUMMARY
+- Priority: $PRIORITY
+- Status: $STATUS
+- Source files readable via Read, Glob, and Grep tools
 
 Per §15, production incidents require:
 1. Severity classification (P0=service down, P1=major degradation, P2=degraded, P3=minor)
@@ -43,21 +48,25 @@ Per §15, production incidents require:
 4. Postmortem documentation
 5. Learnings to prevent recurrence
 
-Read the codebase and assess the incident.
-
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 SEVERITY: <P0|P1|P2|P3>
-SEVERITY_RATIONALE: <why>
-AFFECTED_COMPONENT: <file/feature name>
-ROOT_CAUSE: <concise root cause>
+SEVERITY_RATIONALE: <why this severity level>
+AFFECTED_COMPONENT: <file or feature name>
+ROOT_CAUSE: <concise root cause — plain language>
 ROLLBACK_POSSIBLE: <YES — steps|NO — reason>
 IMMEDIATE_ACTION: <what should be done right now>
 CONTRIBUTING_FACTORS:
 - <factor>
 PREVENTION:
 - <action to prevent recurrence>
-POSTMORTEM_SUMMARY: <1-2 sentence summary for Product Memory>" \
+POSTMORTEM_SUMMARY: <1-2 sentence summary for Product Memory>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
@@ -66,6 +75,7 @@ POSTMORTEM_SUMMARY: <1-2 sentence summary for Product Memory>" \
   ROLLBACK=$(echo "$INCIDENT_ANALYSIS" | grep '^ROLLBACK_POSSIBLE:' | sed 's/^ROLLBACK_POSSIBLE: //')
   IMMEDIATE=$(echo "$INCIDENT_ANALYSIS" | grep '^IMMEDIATE_ACTION:' | sed 's/^IMMEDIATE_ACTION: //')
   POSTMORTEM=$(echo "$INCIDENT_ANALYSIS" | grep '^POSTMORTEM_SUMMARY:' | sed 's/^POSTMORTEM_SUMMARY: //')
+  extract_standard "$INCIDENT_ANALYSIS"
 
   # Severity icon
   case "$SEVERITY" in
@@ -91,7 +101,8 @@ $(echo "$INCIDENT_ANALYSIS" | sed -n '/^CONTRIBUTING_FACTORS:/,/^PREVENTION:/p' 
 Prevention Actions:
 $(echo "$INCIDENT_ANALYSIS" | sed -n '/^PREVENTION:/,/^POSTMORTEM_SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
 
-$([ "$SEVERITY" = "P0" ] || [ "$SEVERITY" = "P1" ] && echo "⚠ HIGH SEVERITY — Human escalation required per §15. Do NOT close without postmortem sign-off.")"
+$([ "$SEVERITY" = "P0" ] || [ "$SEVERITY" = "P1" ] && echo "⚠ HIGH SEVERITY — Human escalation required per §15. Do NOT close without postmortem sign-off.")
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "Incident Agent: $ICON $KEY [$SEVERITY] — $ROOT_CAUSE"

@@ -21,25 +21,23 @@ echo "Architect Agent: $COUNT stories to refine"
 echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
 
   REFINEMENT=$(claude --print \
-"You are a Tech Architect refining a Jira user story for SprintOps Console.
+"Role: You are the Tech Architect Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Refine this story technically — assess architecture compliance, define implementation approach, flag risks and documentation requirements.
 
-Project: React 18, no build step, Babel standalone, CSS design tokens in colors_and_type.css.
-Files: index.html, sprintops-app.jsx, sprintops-shared.jsx, sprintops-layout.jsx,
-       sprintops-readiness.jsx, sprintops-estimation.jsx, sprintops-release.jsx,
-       sprintops-config.jsx, sprintops-data.js, colors_and_type.css
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read tool
 
-Engineering Constitution requirements to check and address:
-
+Engineering Constitution requirements:
 §1 Simplicity: Prefer simplest solution. Flag over-engineering risk.
-§2 Tech Standards: Use React patterns correctly. TypeScript is mandated but missing (flag as debt).
-§3 Architecture: Components must handle loading/error/empty states. No business logic in UI.
-   State: local stays local. Use CSS tokens, not hardcoded values.
+§2 Tech Standards: React patterns; TypeScript mandated but missing — flag as tech debt.
+§3 Architecture: Components must handle loading/error/empty states; no business logic in UI; local state stays local; use CSS design tokens.
 §10 Documentation: Major decisions need rationale, alternatives, risks, rollback.
-Governance §2: Include rationale, impact summary, risk awareness, affected systems, rollback awareness.
+Governance §2: Rationale, impact summary, risk awareness, affected systems, rollback awareness required.
 
-Output EXACTLY these sections, no extra text:
+Output format — output EXACTLY these sections:
 
 TECH_NOTES:
 - <implementation note 1>
@@ -48,16 +46,16 @@ TECH_NOTES:
 
 ARCHITECTURE_COMPLIANCE:
 - §1 Simplicity: <assessment>
-- §3 Component states: <loading/error/empty required? how to implement?>
+- §3 Component states: <loading/error/empty required and how to implement>
 - §3 State management: <what state is needed and where it lives>
 - §3 Design tokens: <which CSS variables to use>
 
 TECH_STACK_NOTES:
-- <React pattern to follow for this story>
+- <React pattern to follow>
 - <TypeScript debt note if applicable>
 
 DOCUMENTATION_REQUIRED:
-- <what architecture decision to document, or 'Standard implementation — no ADR needed'>
+- <architecture decision to document, or 'Standard implementation — no ADR needed'>
 
 RATIONALE:
 - <why this technical approach>
@@ -79,7 +77,13 @@ TEST_SCENARIOS:
 - <test scenario 2>
 - <test scenario 3>
 
-SENSITIVE_AREAS: <YES|NO>" \
+SENSITIVE_AREAS: <YES|NO>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read" \
     --no-conversation 2>/dev/null)
 
@@ -129,6 +133,10 @@ $(echo "$REFINEMENT" | sed -n '/^TEST_SCENARIOS:/,/^SENSITIVE_AREAS:/p' | grep '
 
 📄 ADR REQUIRED: $ADR — Document in PRODUCT_MEMORY.md per §10."
   fi
+
+  extract_standard "$REFINEMENT"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
 

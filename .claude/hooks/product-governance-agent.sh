@@ -26,33 +26,40 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   [ "$HAS_GOV" -gt 0 ] && continue
 
   GOV_REVIEW=$(claude --print \
-"You are the Product Governance Agent for SprintOps Console (Product Constitution §4).
+"Role: You are the Product Governance Agent for SprintOps Console.
+$AGENT_CONTEXT
+
+Task: Evaluate this story against Product Constitution §4 governance questions and §1 simplicity principle.
+
+Inputs:
+- Story to evaluate: $SUMMARY
+- Existing backlog (for duplicate detection):
+$(echo "$BACKLOG_SUMMARIES" | head -50 | sed 's/^/- /')
 
 Product Constitution §10 Decision Hierarchy:
 1. User trust  2. Accessibility  3. Stability  4. Simplicity
 5. Maintainability  6. Speed of delivery  7. Feature expansion
 
-Story to evaluate: $SUMMARY
+Output format — output EXACTLY these fields:
 
-Existing backlog items (for duplicate detection):
-$(echo "$BACKLOG_SUMMARIES" | head -50 | sed 's/^/- /')
-
-Evaluate this story against the §4 governance questions and §1 simplicity principle.
-
-Output EXACTLY this format:
-
-WHO_BENEFITS: <specific user persona or 'All users' or 'Unknown — needs clarification'>
+WHO_BENEFITS: <specific user persona, 'All users', or 'Unknown — needs clarification'>
 PROBLEM_SOLVED: <the user problem being addressed>
 WHY_NOW: <urgency or roadmap alignment, or 'Not justified — recommend deferring'>
 MAINTENANCE_COST: <LOW|MEDIUM|HIGH — brief reason>
 DUPLICATE_RISK: <YES — similar to: <story name>|NO — unique value>
 SIMPLICITY_ASSESSMENT: <PASS — appropriately scoped|FLAG — may introduce unnecessary complexity>
-ANALYTICS_VALUE: <what metric would prove this feature is working?>
+ANALYTICS_VALUE: <metric that proves this feature is working>
 
 GOVERNANCE_VERDICT: <APPROVED — clear value|DEFER — unclear value|FLAG — needs discussion>
 GOVERNANCE_NOTES:
 - <note 1>
-- <note 2>" \
+- <note 2>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read" \
     --no-conversation 2>/dev/null)
 
@@ -84,6 +91,10 @@ $(echo "$GOV_REVIEW" | sed -n '/^GOVERNANCE_NOTES:/,$p' | grep '^-' | sed 's/^- 
 Product Constitution §4: Features approved only if they solve a meaningful problem,
 align with roadmap, maintain coherence, and do not create unnecessary complexity.
 §9: This assessment is advisory — human product owner has final authority."
+
+  extract_standard "$GOV_REVIEW"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "Product Governance Agent: $KEY reviewed ($VERDICT_ICON $VERDICT)"

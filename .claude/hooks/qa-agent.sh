@@ -44,16 +44,22 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
 
   # ── Generate functional test cases ────────────────────────────────────────
   QA_PLAN=$(claude --print \
-"You are a QA Lead writing test cases for SprintOps Console.
+"Role: You are the QA Lead Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Write 4-6 concrete functional test cases for this story.
 
-Read the relevant source files to understand the implementation.
-Write 4-6 concrete test cases. Output EXACTLY this format:
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read, Glob, and Grep tools
 
+Output format: For each test case output EXACTLY one pipe-separated line:
 PASS|<test case title>|<steps to reproduce>|<expected result>
-PASS|...
-EDGE|<edge case title>|<steps>|<expected result>" \
+EDGE|<edge case title>|<steps>|<expected result>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
@@ -94,11 +100,16 @@ EDGE|<edge case title>|<steps>|<expected result>" \
 
   # ── Run automated logic + accessibility + performance checks ───────────────
   AUTO_RESULT=$(claude --print \
-"You are a QA automation engineer. Run checks on SprintOps Console for:
+"Role: You are the QA Automation Engineer Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Run all 12 automated quality checks for this story and report results.
 
-Check ALL of the following — read the relevant .jsx files:
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read, Glob, and Grep tools
+
+Checks to run:
 1. LOGIC: Null/undefined guards for all data accesses
 2. LOGIC: State updates are immutable (no direct mutation)
 3. LOGIC: Event listeners cleaned up in useEffect returns
@@ -109,13 +120,21 @@ Check ALL of the following — read the relevant .jsx files:
 8. ACCESSIBILITY (§5): Error/status messages use aria-live or role=alert
 9. PERFORMANCE (§13): No unnecessary re-renders (stable references)
 10. PERFORMANCE (§13): No blocking synchronous operations in render
-11. TESTING (§6): Pure functions extractable and unit-testable?
-12. OBSERVABILITY (§7): Error boundary coverage present?
+11. TESTING (§6): Pure functions extractable and unit-testable
+12. OBSERVABILITY (§7): Error boundary coverage present
 
-For each check output EXACTLY:
+Output format: For each check output EXACTLY one line:
 CHECK|<name>|PASS|<note>
 or
-CHECK|<name>|FAIL|<steps to reproduce>|<expected result>|<actual result>|<severity P1/P2/P3>" \
+CHECK|<name>|FAIL|<steps to reproduce>|<expected result>|<actual result>|<severity P1/P2/P3>
+
+After the 12 CHECK lines, output all standard fields.
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
@@ -126,6 +145,8 @@ CHECK|<name>|FAIL|<steps to reproduce>|<expected result>|<actual result>|<severi
   # Parse failures — format: CHECK|name|FAIL|steps|expected|actual|severity
   FAILURES_RAW=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|FAIL|')
   FAILURE_COUNT=$(echo "$FAILURES_RAW" | grep -c '|FAIL|' || true)
+
+  extract_standard "$AUTO_RESULT"
 
   # ── Pass path: → Product Acceptance ───────────────────────────────────────
   if [ -z "$FAILURES_RAW" ] || [ "$FAILURE_COUNT" -eq 0 ]; then
@@ -140,7 +161,8 @@ Checks passed:
 • Observability §7 ✓
 
 Governance §8 validation complete.
-Transitioning to Product Acceptance (§7 lifecycle)."
+Transitioning to Product Acceptance (§7 lifecycle).
+$(standard_fields_block)"
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "Product Acceptance"
     jira_transition "$KEY" "Done"  # fallback if "Product Acceptance" state not configured
@@ -234,7 +256,8 @@ $FAILURE_SUMMARY
 §8 requirement: all bugs linked above include steps to reproduce, expected/actual results,
 environment, severity, and feature association.
 
-Transitioning to In Development. Resolve all bugs before re-submitting for QA."
+Transitioning to In Development. Resolve all bugs before re-submitting for QA.
+$(standard_fields_block)"
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "In Development"
     jira_transition "$KEY" "In Progress"  # fallback

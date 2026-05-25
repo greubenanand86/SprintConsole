@@ -22,9 +22,14 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   [ "$HAS_UX" -gt 0 ] && continue
 
   UX_NOTES=$(claude --print \
-"You are a UX Designer reviewing a story for SprintOps Console (Product Constitution §2, §6).
+"Role: You are the UX Designer Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Review this story for full §2 UX principle coverage and produce a UX specification.
+
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read tool
 
 Product Constitution §2 requires every workflow to address:
 - Clarity and predictability (user knows where they are, what happens next)
@@ -38,9 +43,7 @@ Product Constitution §2 requires every workflow to address:
 
 §10 Decision Hierarchy: User trust > Accessibility > Stability > Simplicity
 
-Read the relevant .jsx files to understand the current UI context.
-
-Output EXACTLY this format, no extra text:
+Output format — output EXACTLY these sections:
 
 USER_FLOW:
 - <step 1 — what user sees/does>
@@ -72,7 +75,13 @@ FIRST_USE_EXPERIENCE:
 - <how a new user would understand this feature without explanation>
 
 COMPONENTS_TO_USE:
-- <component from sprintops-shared.jsx and why>" \
+- <component from sprintops-shared.jsx and why>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read" \
     --no-conversation 2>/dev/null)
 
@@ -101,6 +110,10 @@ $(echo "$UX_NOTES" | sed -n '/^FIRST_USE_EXPERIENCE:/,/^COMPONENTS_TO_USE:/p' | 
 
 Shared Components:
 $(echo "$UX_NOTES" | sed -n '/^COMPONENTS_TO_USE:/,$p' | grep '^-' | sed 's/^- /✦ /')"
+
+  extract_standard "$UX_NOTES"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "UX Agent: Full §2 spec posted to $KEY"

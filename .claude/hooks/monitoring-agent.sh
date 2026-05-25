@@ -38,22 +38,24 @@ echo "$RELEASED" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.stat
   HAS_INCIDENT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep -c '\[INCIDENT\]' || true)
 
   MONITOR_CHECK=$(claude --print \
-"You are the Monitoring Agent for SprintOps Console (Jira Workflow Governance §12).
+"Role: You are the Monitoring Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Released story: $SUMMARY (Status: $STATUS)
+Task: Assess the production health of this released feature and determine if monitoring can be closed.
 
-Post-release monitoring checks:
+Inputs:
+- Released story: $SUMMARY (Status: $STATUS)
+- Open production bugs: ${LINKED_BUGS:-None found}
+- Incident flags: ${HAS_INCIDENT:-0}
+- Source files readable via Read and Glob tools
+
+Post-release monitoring checks (§12):
 1. Production stability — are there open production bugs linked to this feature?
 2. Rollback readiness — can this be reverted if issues emerge?
 3. User impact — any signals of user-facing problems?
 4. Performance — any observable degradation?
 
-Open production bugs: ${LINKED_BUGS:-None found}
-Incident flags: ${HAS_INCIDENT:-0}
-
-Read the deployed files to assess the feature's production state.
-
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 STABILITY: <STABLE|UNSTABLE — reason>
 ROLLBACK_READY: <YES — how|NO — gap>
@@ -62,12 +64,19 @@ PERFORMANCE: <ACCEPTABLE|CONCERN — reason>
 
 MONITORING_VERDICT: <CLEAR — safe to close|HOLD — keep monitoring|ESCALATE — incident response needed>
 NOTES:
-- <observation>" \
+- <observation>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob" \
     --no-conversation 2>/dev/null)
 
   VERDICT=$(echo "$MONITOR_CHECK" | grep '^MONITORING_VERDICT:' | sed 's/^MONITORING_VERDICT: //')
   STABILITY=$(echo "$MONITOR_CHECK" | grep '^STABILITY:' | sed 's/^STABILITY: //')
+  extract_standard "$MONITOR_CHECK"
 
   case "$VERDICT" in
     CLEAR*)
@@ -79,9 +88,10 @@ User Impact: $(echo "$MONITOR_CHECK" | grep '^USER_IMPACT:' | sed 's/^USER_IMPAC
 Performance: $(echo "$MONITOR_CHECK" | grep '^PERFORMANCE:' | sed 's/^PERFORMANCE: //')
 
 Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,$p' | grep '^-' | sed 's/^- /• /')
+$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
 
-Monitoring period complete. Transitioning to Done."
+Monitoring period complete. Transitioning to Done.
+$(standard_fields_block)"
       jira_comment "$KEY" "$COMMENT"
       jira_transition "$KEY" "Monitoring"
       jira_transition "$KEY" "Done"
@@ -93,9 +103,10 @@ Monitoring period complete. Transitioning to Done."
 
 Stability: $STABILITY
 Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,$p' | grep '^-' | sed 's/^- /• /')
+$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
 
-Will check again next session."
+Will check again next session.
+$(standard_fields_block)"
       jira_comment "$KEY" "$COMMENT"
       jira_transition "$KEY" "Monitoring"
       echo "Monitoring Agent: ⏸ $KEY — holding in monitoring"
@@ -108,10 +119,11 @@ Stability: $STABILITY
 Open Bugs: ${LINKED_BUGS:-None on record}
 
 Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,$p' | grep '^-' | sed 's/^- /• /')
+$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
 
 ⚠ Human escalation required per §15 Incident Governance.
-Do NOT close this story until incident is resolved."
+Do NOT close this story until incident is resolved.
+$(standard_fields_block)"
       jira_comment "$KEY" "$COMMENT"
       echo "Monitoring Agent: 🚨 $KEY — escalating to incident response"
       exit 2

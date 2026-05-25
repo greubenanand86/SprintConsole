@@ -25,9 +25,16 @@ HARDCODED_HEX=$(grep -rn '#[0-9a-fA-F]\{3,6\}' "$REPO_ROOT" \
 
 # ── AI architectural debt analysis ────────────────────────────────────────
 DEBT_ANALYSIS=$(claude --print \
-"You are a Tech Debt Analyst for SprintOps Console (Engineering Constitution §12).
+"Role: You are the Tech Debt Analyst Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Scan the codebase and identify technical debt. Focus on:
+Task: Scan the codebase and identify technical debt items. Produce structured findings for Jira tracking.
+
+Inputs: Source files readable via Read, Glob, Grep, and Bash tools.
+
+Engineering Constitution §12: Debt must be visible, prioritized, and tracked in Jira. Each sprint should reserve 15-20% capacity for debt reduction (§9).
+
+Debt categories to scan:
 1. Missing TypeScript (§2 mandates TS — app uses .jsx only)
 2. Missing test suite (§6 mandates unit + integration tests)
 3. Missing CI/CD pipeline (§8)
@@ -39,12 +46,21 @@ Scan the codebase and identify technical debt. Focus on:
 9. Hardcoded values that should use design tokens
 10. Oversized components (>300 lines without clear separation)
 
-For each debt item output EXACTLY this format:
+Output format: For each debt item output EXACTLY one pipe-separated line:
 DEBT|<category>|<severity: HIGH|MEDIUM|LOW>|<specific finding>|<recommended fix>
 
-Output up to 15 items. No extra text." \
+Output up to 15 DEBT lines. Then output all standard fields.
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
   --allowedTools "Read,Glob,Grep,Bash" \
   --no-conversation 2>/dev/null)
+
+extract_standard "$DEBT_ANALYSIS"
+[ -n "$STD_SUMMARY" ] && echo "Tech Debt Agent: $STD_SUMMARY"
 
 # ── Get existing tech debt issues to avoid duplicates ────────────────────
 EXISTING_DEBT=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+labels=tech-debt&maxResults=50&fields=summary")

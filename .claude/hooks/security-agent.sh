@@ -29,9 +29,14 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   IS_SENSITIVE=$(echo "$SUMMARY_LOWER" | grep -cE "$SENSITIVE_PATTERN" || true)
 
   SEC_REVIEW=$(claude --print \
-"You are the Security Agent for SprintOps Console (Engineering Constitution §4).
+"Role: You are the Security Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Story: $SUMMARY
+Task: Review this story against the §4 mandatory security checklist. Identify risks, failures, and required actions. Flag anything that requires human security sign-off.
+
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read, Glob, and Grep tools
 
 Engineering Constitution §4 mandatory security checklist:
 1. No secrets in source control (API keys, tokens, credentials)
@@ -42,9 +47,7 @@ Engineering Constitution §4 mandatory security checklist:
 6. Input validation (user inputs sanitized and validated)
 7. Secure storage practices (no sensitive data in localStorage/plain cookies)
 
-Read relevant source files and evaluate this story against each checklist item.
-
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 RISK_LEVEL: <LOW|MEDIUM|HIGH>
 
@@ -63,7 +66,13 @@ CONCERNS:
 REQUIRED_ACTIONS:
 - <concrete action, or 'None'>
 
-SIGN_OFF_REQUIRED: <YES — human security review needed|NO — low risk, proceed>" \
+SIGN_OFF_REQUIRED: <YES — human security review needed|NO — low risk, proceed>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
@@ -91,6 +100,10 @@ Human Sign-off Required: ${SIGN_OFF:-YES}$SENSITIVE_NOTE
 
 Engineering Constitution §4: Mandatory security checklist.
 AI agents may not approve security-sensitive changes. Human review is final authority."
+
+  extract_standard "$SEC_REVIEW"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
 

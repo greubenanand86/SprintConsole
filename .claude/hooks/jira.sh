@@ -55,6 +55,88 @@ jira_comment() {
   jira_post "issue/$1/comment" "$BODY" > /dev/null
 }
 
+# ── Prompt Engineering Standards v1.0 ─────────────────────────────────────
+# Shared prompt components sourced by every agent
+
+AGENT_CONTEXT="Context: SprintOps Console — React 18, no-build, Babel standalone JSX.
+Core files: sprintops-app.jsx, sprintops-shared.jsx, sprintops-layout.jsx,
+  sprintops-readiness.jsx, sprintops-estimation.jsx, sprintops-release.jsx,
+  sprintops-config.jsx, sprintops-data.js, colors_and_type.css
+Governance: Engineering Constitution + Product Constitution + Jira Workflow Governance v1.1
+  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+
+AGENT_CONSTRAINTS="Constraints:
+- Avoid technical jargon in user/business-facing sections
+- State uncertainty with explicit confidence level (HIGH / MEDIUM / LOW)
+- Explain business impact for every significant finding
+- Provide actionable recommendations, not just analysis
+- Flag governance violations immediately with [GOVERNANCE VIOLATION]
+- Use plain language in SUMMARY, BUSINESS_IMPACT, and USER_IMPACT sections"
+
+AGENT_ESCALATION_RULES="Escalation rules:
+Escalate immediately and prefix output with [ESCALATE → TPM] if you detect:
+- Production risk: data loss, service disruption, security breach
+- Compliance concern: auth, PII, billing, legal, or destructive migration
+- Governance bypass: skipping QA, Product Acceptance, or release gates
+- Agent conflict: contradictory verdicts from prior agent comments
+Prefix governance violations with: [GOVERNANCE VIOLATION]"
+
+# Standard output suffix appended to every agent prompt's output format section
+STANDARD_OUTPUT_SUFFIX="Additionally output ALL of the following standard fields:
+
+SUMMARY: <one sentence — story state and what is needed; no jargon>
+RECOMMENDATION: <single most important action to take next>
+BUSINESS_IMPACT: <user or product effect in plain language>
+TIMELINE_IMPACT: <sprint or delivery effect, or 'No impact on current sprint'>
+USER_IMPACT: <how end users are directly affected, or 'Not user-visible'>
+RISKS_SUMMARY: <key risks in plain English, or 'None identified'>
+DEPENDENCIES_SUMMARY: <blocking items, or 'None'>
+NEXT_STEPS:
+- <concrete action 1>
+- <concrete action 2>
+JIRA_UPDATES: <status, label, or field changes needed in Jira>
+PRODUCT_MEMORY: <YES — what decision or learning to record|NO>"
+
+# Non-technical summary block — appended to TPM-facing agent prompts only
+NONTECHNICAL_SUMMARY_REQ="For TPM and human-facing sections also output:
+NON_TECHNICAL_SUMMARY:
+- Business impact: <plain-language effect on users or product>
+- Timeline impact: <delivery or sprint effect>
+- User impact: <what end users will notice or be blocked by>
+- Cost impact: <engineering or operational cost, or 'None'>
+- Release risk: <likelihood and severity of release issues>"
+
+# extract_standard: parse standard output fields from a Claude response
+# Usage: extract_standard "$RESPONSE" — populates STD_* variables in current shell
+extract_standard() {
+  local R="$1"
+  STD_SUMMARY=$(echo "$R" | grep '^SUMMARY:' | sed 's/^SUMMARY: //')
+  STD_RECOMMENDATION=$(echo "$R" | grep '^RECOMMENDATION:' | sed 's/^RECOMMENDATION: //')
+  STD_BUSINESS=$(echo "$R" | grep '^BUSINESS_IMPACT:' | sed 's/^BUSINESS_IMPACT: //')
+  STD_TIMELINE=$(echo "$R" | grep '^TIMELINE_IMPACT:' | sed 's/^TIMELINE_IMPACT: //')
+  STD_USER=$(echo "$R" | grep '^USER_IMPACT:' | sed 's/^USER_IMPACT: //')
+  STD_RISKS=$(echo "$R" | grep '^RISKS_SUMMARY:' | sed 's/^RISKS_SUMMARY: //')
+  STD_DEPS=$(echo "$R" | grep '^DEPENDENCIES_SUMMARY:' | sed 's/^DEPENDENCIES_SUMMARY: //')
+  STD_NEXT=$(echo "$R" | sed -n '/^NEXT_STEPS:/,/^JIRA_UPDATES:/p' | grep '^-' | sed 's/^- /→ /')
+  STD_JIRA=$(echo "$R" | grep '^JIRA_UPDATES:' | sed 's/^JIRA_UPDATES: //')
+  STD_PM=$(echo "$R" | grep '^PRODUCT_MEMORY:' | sed 's/^PRODUCT_MEMORY: //')
+}
+
+# standard_fields_block: format extracted STD_* variables into a Jira comment block
+# Call extract_standard first, then call this to get the formatted block
+standard_fields_block() {
+  echo "---
+Summary: ${STD_SUMMARY:-Not provided}
+Recommendation: ${STD_RECOMMENDATION:-See agent-specific sections above}
+Business Impact: ${STD_BUSINESS:-Not specified}
+Timeline Impact: ${STD_TIMELINE:-No impact on current sprint}
+User Impact: ${STD_USER:-Not user-visible}
+Next Steps:
+${STD_NEXT:-→ See agent-specific actions above}
+Jira Updates: ${STD_JIRA:-None}
+Product Memory: ${STD_PM:-NO}"
+}
+
 # Agent Interaction Protocols v1.0 — Handoff Packet helpers
 # write_handoff: each agent calls this when handing work to the next stage
 # Args: KEY FROM_AGENT TO_STAGE OBJECTIVE AC UX_NOTES TECH_NOTES RISKS DEPS OPEN_QS EXPECTED

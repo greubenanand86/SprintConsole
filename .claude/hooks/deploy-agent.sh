@@ -92,22 +92,32 @@ $QA_VERIFIED && QA_GATE="☑ QA sign-off verified (§8 §11)"
 
 # ── §6: Definition of Done check ──────────────────────────────────────────
 DOD_CHECK=$(claude --print \
-"You are a Deployment Specialist verifying Definition of Done (Jira Workflow Governance §6).
+"Role: You are the Deployment Specialist Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-A story is not complete without:
-1. Acceptance criteria validated (look for QA sign-off in Jira)
-2. Unit testing completed (look for test files or QA test cases)
+Task: Verify Definition of Done (§6) for these stories: $(echo "$DONE_STORIES" | jq -r '.issues[].fields.summary' | head -5 | tr '\n' '; ')
+
+Inputs: Source files readable via Read and Glob tools.
+
+Definition of Done (§6) — a story is not complete without ALL of:
+1. Acceptance criteria validated (QA sign-off present)
+2. Unit testing completed (test files or QA test cases exist)
 3. QA verified (QA Lead sign-off present)
-4. Accessibility reviewed (look for §5 pass in QA comment)
-5. Regression impact reviewed (look for release risk assessment)
-6. Documentation updated where applicable (CLAUDE.md, README, inline comments)
-7. Monitoring/logging added where applicable (error boundaries, structured logging)
-8. Release notes prepared (look for deploy comment with release notes)
-9. Product Acceptance completed (look for [PRODUCT ACCEPTANCE] ✅)
+4. Accessibility reviewed (§5 pass in QA comment)
+5. Regression impact reviewed (release risk assessment present)
+6. Documentation updated (CLAUDE.md, README, inline comments where applicable)
+7. Monitoring/logging added (error boundaries, structured logging where applicable)
+8. Release notes prepared (deploy comment with release notes)
+9. Product Acceptance completed ([PRODUCT ACCEPTANCE] ✅ present)
 
-Read the codebase for stories: $(echo "$DONE_STORIES" | jq -r '.issues[].fields.summary' | head -5 | tr '\n' '; ')
+Output format: For each DoD item output exactly one line:
+DOD|<item>|MET|<note>
+or
+DOD|<item>|UNMET|<gap description>
 
-For each DoD item output: DOD|<item>|MET|<note> or DOD|<item>|UNMET|<gap>" \
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES" \
   --allowedTools "Read,Glob" \
   --no-conversation 2>/dev/null)
 
@@ -122,9 +132,14 @@ $STAGING_OK && STAGING_NOTE="☑ Staging branch verified"
 
 # ── Artefact checks ───────────────────────────────────────────────────────
 DEPLOY_CHECK=$(claude --print \
-"Deployment artefact verification for SprintOps Console.
+"Role: You are the Deployment Specialist Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Check:
+Task: Verify all pre-release artefacts are present and correct.
+
+Inputs: Repository files readable via Read, Glob, and Bash tools.
+
+Artefact checklist:
 1. index.html exists and references only vendor/ and local .js/.jsx files
 2. All files referenced in index.html exist on disk
 3. vendor/ contains react.development.js, react-dom.development.js, babel.min.js, lucide.min.js
@@ -133,7 +148,14 @@ Check:
 6. ROLLBACK: At least 2 git commits exist (can revert)
 7. MONITORING: No missing critical scripts in index.html
 
-Output: DEPLOY_CHECK|<name>|OK|<note> or DEPLOY_CHECK|<name>|FAIL|<reason>" \
+Output format: For each check output exactly one line:
+DEPLOY_CHECK|<name>|OK|<note>
+or
+DEPLOY_CHECK|<name>|FAIL|<reason>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES" \
   --allowedTools "Read,Glob,Bash" \
   --no-conversation 2>/dev/null)
 
@@ -154,15 +176,18 @@ fi
 STORY_LIST=$(echo "$DONE_STORIES" | jq -r '.issues[] | "- \(.key): \(.fields.summary)"')
 
 RELEASE_NOTES=$(claude --print \
-"Write user-facing release notes for SprintOps Console (Product Constitution §5 §1).
+"Role: You are the Deployment Specialist Agent for SprintOps Console writing user-facing release notes.
+$AGENT_CONTEXT
 
-Stories in this release:
+Task: Write release notes for this release in plain language for sprint managers.
+
+Inputs:
+- Stories in this release:
 $STORY_LIST
 
-§1: Avoid jargon. Write for sprint managers who understand sprint management but not internals.
-§5: Release notes are mandatory for every release.
+Product Constitution §5 §1: Release notes are mandatory. Avoid technical jargon — write for sprint managers who understand sprint management but not engineering internals.
 
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 WHATS_NEW:
 - <user-facing description>
@@ -176,9 +201,20 @@ BUG_FIXES:
 KNOWN_LIMITATIONS:
 - <limitation, or 'None'>
 
-ROLLBACK_NOTE: <one sentence on how to revert if needed>" \
+ROLLBACK_NOTE: <one sentence on how to revert if needed>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX
+
+$NONTECHNICAL_SUMMARY_REQ" \
   --allowedTools "Read" \
   --no-conversation 2>/dev/null)
+
+extract_standard "$RELEASE_NOTES"
+NON_TECH=$(echo "$RELEASE_NOTES" | sed -n '/^NON_TECHNICAL_SUMMARY:/,/^---/p' | head -8)
 
 # ── Create Fix Version (unreleased — pending human approval) ──────────────
 TODAY=$(date +%Y-%m-%d)
@@ -247,6 +283,10 @@ $([ -n "$PA_HANDOFF_OPEN" ] && [ "$PA_HANDOFF_OPEN" != "None" ] && echo "
 Open Questions (from PA handoff):
   $PA_HANDOFF_OPEN")
 ☐ Human approval — REQUIRED before production (§9)
+${NON_TECH:+
+Non-Technical Summary:
+$NON_TECH}
+$(standard_fields_block)
 
 After human approves:
 → Mark Fix Version $VERSION_NAME as Released in Jira

@@ -27,14 +27,17 @@ echo "Release Risk Agent: Assessing risk for $COUNT stories"
 STORY_LIST=$(echo "$DONE_STORIES" | jq -r '.issues[] | "- \(.key): \(.fields.summary)"')
 
 RISK_ASSESSMENT=$(claude --print \
-"You are the Release Risk Agent for SprintOps Console (governance §9).
+"Role: You are the Release Risk Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-Stories in this release:
+Task: Assess the overall deployment risk for this release. Output a risk level (GREEN/YELLOW/RED) with rationale, rollback plan, and monitoring checklist.
+
+Inputs:
+- Stories in this release:
 $STORY_LIST
+- Source files readable via Read, Glob, and Grep tools
 
-Assess the overall release risk. Read the codebase for context.
-
-Consider:
+Risk factors to evaluate:
 1. Scope and number of changes
 2. Security-sensitive areas touched (auth, PII, payments, integrations)
 3. Data model or breaking changes
@@ -42,7 +45,7 @@ Consider:
 5. Rollback feasibility (can changes be reverted cleanly?)
 6. Monitoring availability post-deploy
 
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 RISK_LEVEL: <GREEN|YELLOW|RED>
 
@@ -60,12 +63,22 @@ ROLLBACK_PLAN:
 MONITORING_CHECKLIST:
 - <what to verify post-deploy>
 
-RECOMMENDATION: <PROCEED|STAGED_ROLLOUT|BLOCK>" \
+RECOMMENDATION: <PROCEED|STAGED_ROLLOUT|BLOCK>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX
+
+$NONTECHNICAL_SUMMARY_REQ" \
   --allowedTools "Read,Glob,Grep" \
   --no-conversation 2>/dev/null)
 
 RISK_LEVEL=$(echo "$RISK_ASSESSMENT" | grep '^RISK_LEVEL:' | sed 's/^RISK_LEVEL: //')
 RECOMMENDATION=$(echo "$RISK_ASSESSMENT" | grep '^RECOMMENDATION:' | sed 's/^RECOMMENDATION: //')
+extract_standard "$RISK_ASSESSMENT"
+NON_TECH=$(echo "$RISK_ASSESSMENT" | sed -n '/^NON_TECHNICAL_SUMMARY:/,/^SUMMARY:/p' | head -8)
 
 case "$RISK_LEVEL" in
   GREEN)  RISK_ICON="✅" ;;
@@ -91,7 +104,11 @@ $(echo "$RISK_ASSESSMENT" | sed -n '/^MONITORING_CHECKLIST:/,/^RECOMMENDATION:/p
 Recommendation: ${RECOMMENDATION:-STAGED_ROLLOUT}
 
 GOVERNANCE NOTE: Per §4 and §9, human approval is required before production
-deployment regardless of risk level. A RED assessment blocks deployment entirely."
+deployment regardless of risk level. A RED assessment blocks deployment entirely.
+${NON_TECH:+
+Non-Technical Summary:
+$NON_TECH}
+$(standard_fields_block)"
 
 echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
   jira_comment "$KEY" "$COMMENT"

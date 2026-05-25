@@ -23,14 +23,23 @@ DESIGN_CONTEXT=$(cat "$REPO_ROOT/chats/chat1.md" 2>/dev/null | head -100)
 # Stories must include business purpose, AC, UX considerations, edge cases,
 # QA notes, release impact, and analytics instrumentation requirements.
 ANALYSIS=$(claude --print \
-"You are the Product Manager for SprintOps Console.
-Governance §5 + Product Constitution §4 §8 apply.
+"Role: You are the Product Manager Agent for SprintOps Console.
+$AGENT_CONTEXT
+
+Task: Perform a gap analysis on the existing Jira backlog against the product spec. Create stories for missing features that satisfy the §5 Definition of Ready.
+
+Inputs:
+- Existing Jira issues listed below (do NOT duplicate)
+- Product spec: 4-page application (Readiness Tracker, Estimation Planner, Release Readiness, Configuration)
+- Source files readable via Read and Glob tools
 
 Product Constitution §10 Decision Hierarchy:
 1. User trust  2. Accessibility  3. Stability  4. Simplicity
 5. Maintainability  6. Speed of delivery  7. Feature expansion
 
-EXISTING JIRA ISSUES (already created — do NOT duplicate these):
+Governance §5 + Product Constitution §4 §8: Each story must include business purpose, AC, UX considerations, edge cases, QA notes, release impact, analytics event, priority, dependencies, and API considerations.
+
+EXISTING JIRA ISSUES (do NOT duplicate):
 $(echo "$EXISTING" | jq -r '.issues[] | "- [\(.fields.issuetype.name)] \(.key): \(.fields.summary)"' 2>/dev/null || echo 'None yet')
 
 DESIGN SPEC CONTEXT:
@@ -40,28 +49,21 @@ The SprintOps Console has 4 pages:
 3. Release Readiness — release task cards, product/type/version badges, Generate Scope, Create Post-Deploy, stat cards
 4. Configuration — ADO Connection, Iteration, Field Mapping, Task Rules, Readiness Rules, Estimation Rules, Grouping
 
-TASK: Gap analysis — produce stories for missing features.
-
-Each story MUST include all of:
-- Business purpose (§4: why this matters — who benefits, what problem)
-- Acceptance criteria
-- UX considerations (§2: clarity, recoverability, loading/empty/error states)
-- Edge cases
-- QA notes
-- Release impact
-- Analytics event (§8: what metric proves this feature is working?)
-- Priority (Critical/High/Medium/Low — based on user trust impact and §16 hierarchy)
-- Dependencies (other stories or components this requires, or "None")
-- API considerations (ADO API fields/endpoints affected, or "None")
-
-Definition of Ready (§5) — every story must have all of the above before development starts.
-
-For each story output EXACTLY this pipe-separated format (one story per line):
+Output format: For each missing story output EXACTLY this pipe-separated line:
 STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>|<analytics event>|<priority>|<dependencies>|<api considerations>
 
-Only output stories NOT already in the existing issues list. Output 8-12 stories. No extra text." \
+Output 8-12 STORY lines. Then output all standard fields below.
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
   --allowedTools "Read,Glob" \
   --no-conversation 2>/dev/null)
+
+extract_standard "$ANALYSIS"
+[ -n "$STD_SUMMARY" ] && echo "PM Agent: $STD_SUMMARY"
 
 # ── Get issue type IDs ─────────────────────────────────────────────────────
 ISSUE_TYPES=$(jira_get "project/$JIRA_PROJECT" | jq '.issueTypes // []')

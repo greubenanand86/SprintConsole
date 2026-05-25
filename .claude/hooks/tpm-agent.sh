@@ -73,18 +73,21 @@ RELEASE_BLOCKED: $DEPLOY_BLOCK"
 
   # ── Claude applies conflict resolution order ─────────────────────────────
   RESOLUTION=$(claude --print \
-"You are the TPM Agent for SprintOps Console (Agent Interaction Protocols v1.0).
+"Role: You are the TPM Agent for SprintOps Console — escalation coordinator and conflict resolver.
+$AGENT_CONTEXT
 
-Story: $SUMMARY ($KEY)
-Current Status: $STATUS
+Task: Analyze the escalation signals for this story, apply the Conflict Resolution Order, and produce a clear recommended action.
 
-Escalation signals detected:
+Inputs:
+- Story: $SUMMARY ($KEY)
+- Current Status: $STATUS
+- Escalation signals detected:
 $ESCALATION_SIGNALS
-
-All prior agent activity:
+- All prior agent activity:
 $(echo "$ALL_TEXTS" | grep '\[ARCHITECT\]\|\[QA LEAD\]\|\[SECURITY\]\|\[UX DESIGNER\]\|\[PRODUCT ACCEPTANCE\]\|\[RELEASE RISK\]\|\[DEPLOY SPECIALIST\]\|\[MONITORING\]\|\[INCIDENT\]' | head -20)
+- Source files readable via Read tool
 
-Apply the Conflict Resolution Order (Agent Interaction Protocols §4):
+Conflict Resolution Order (Agent Interaction Protocols §4):
 1. Security / legal — highest priority; blocks everything
 2. Stability — production safety
 3. User experience — UX quality
@@ -92,14 +95,14 @@ Apply the Conflict Resolution Order (Agent Interaction Protocols §4):
 5. Maintainability — code health
 6. Delivery speed — lowest priority
 
-TASK:
-1. Identify the primary escalation type (agents disagree / scope change / delivery risk / QA block / security / architecture conflict)
-2. Identify which conflicting positions exist
+Steps:
+1. Identify the primary escalation type
+2. Identify conflicting positions
 3. Apply the resolution order to determine the correct path
-4. State whether this requires Human Approval (YES if security/legal/strategic scope change)
-5. State the recommended resolution and why
+4. State whether Human Approval is required (YES if security/legal/strategic scope change)
+5. State the recommended resolution with clear rationale
 
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 ESCALATION_TYPE: <agents disagree|delivery risk|QA block|security concern|architecture conflict|release blocked>
 CONFLICTING_POSITIONS:
@@ -108,7 +111,15 @@ CONFLICTING_POSITIONS:
 RESOLUTION_ORDER_APPLIED: <which priority level wins and why>
 RECOMMENDED_ACTION: <what should happen next>
 HUMAN_APPROVAL_REQUIRED: <YES — reason|NO>
-CONFIDENCE: <HIGH|MEDIUM|LOW>" \
+CONFIDENCE: <HIGH|MEDIUM|LOW>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX
+
+$NONTECHNICAL_SUMMARY_REQ" \
     --allowedTools "Read" \
     --no-conversation 2>/dev/null)
 
@@ -116,6 +127,8 @@ CONFIDENCE: <HIGH|MEDIUM|LOW>" \
   RECOMMENDED=$(echo "$RESOLUTION" | grep '^RECOMMENDED_ACTION:' | sed 's/^RECOMMENDED_ACTION: //')
   HUMAN_REQ=$(echo "$RESOLUTION" | grep '^HUMAN_APPROVAL_REQUIRED:' | grep -i 'YES' | wc -l | tr -d ' ')
   CONFIDENCE=$(echo "$RESOLUTION" | grep '^CONFIDENCE:' | sed 's/^CONFIDENCE: //')
+  extract_standard "$RESOLUTION"
+  NON_TECH=$(echo "$RESOLUTION" | sed -n '/^NON_TECHNICAL_SUMMARY:/,/^SUMMARY:/p' | head -8)
 
   COMMENT="[TPM AGENT] ⚡ Escalation Review — $ESCALATION_TYPE
 
@@ -137,7 +150,11 @@ Recommended Action:
 Confidence: $CONFIDENCE
 
 $([ "$HUMAN_REQ" -gt 0 ] && echo "🚨 HUMAN APPROVAL REQUIRED
-$(echo "$RESOLUTION" | grep '^HUMAN_APPROVAL_REQUIRED:' | sed 's/^HUMAN_APPROVAL_REQUIRED: YES — /Reason: /')")"
+$(echo "$RESOLUTION" | grep '^HUMAN_APPROVAL_REQUIRED:' | sed 's/^HUMAN_APPROVAL_REQUIRED: YES — /Reason: /') ")
+${NON_TECH:+
+Non-Technical Summary:
+$NON_TECH}
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "TPM Agent: ⚡ $KEY — $ESCALATION_TYPE resolved [Confidence: $CONFIDENCE]"

@@ -22,24 +22,20 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   [ "$HAS_UI" -gt 0 ] && continue
 
   UI_SPEC=$(claude --print \
-"You are a UI Expert for SprintOps Console (Product Constitution §3).
+"Role: You are the UI Expert Agent for SprintOps Console.
+$AGENT_CONTEXT
 
-§3: All UI implementation must derive from approved Claude Design components, patterns,
-tokens, and flows. Avoid one-off UI patterns, inconsistent forms/buttons, visual fragmentation.
+Task: Produce a §3 design system compliance specification for this story.
 
-Design tokens available in colors_and_type.css:
---color-primary, --color-bg-surface, --color-bg-base, --color-bg-muted, --color-border,
---color-text-primary/secondary/muted, --color-success/warning/danger/info (-bg and -fg variants),
---radius-sm/md/lg/xl/2xl, --shadow-sm/soft/lg, --space-1 through --space-16
+Inputs:
+- Story: $SUMMARY
+- Source files readable via Read tool
+- Design tokens: colors_and_type.css (--color-*, --radius-*, --space-*, --shadow-*)
+- Shared components: sprintops-shared.jsx (Button, Badge, Card, Modal, StatusIcon)
 
-Shared components in sprintops-shared.jsx (use these — do not recreate):
-Button, Badge, Card, Modal, StatusIcon, and any other exported components.
+Product Constitution §3: All UI must derive from approved design components, patterns, and tokens. No one-off patterns, no visual fragmentation.
 
-Story: $SUMMARY
-
-Read the relevant .jsx files to understand what UI is being built.
-
-Output EXACTLY this format:
+Output format — output EXACTLY these sections:
 
 DESIGN_TOKENS:
 - <token>: <specific usage for this story>
@@ -50,7 +46,7 @@ SHARED_COMPONENTS:
 VISUAL_SPEC:
 - <padding/radius/shadow rule>
 - <responsive behaviour>
-- <dark mode / theme consideration>
+- <dark mode or theme consideration>
 
 DESIGN_SYSTEM_COMPLIANCE:
 - <risk of one-off pattern: NONE|LOW|MEDIUM — with reason>
@@ -58,7 +54,13 @@ DESIGN_SYSTEM_COMPLIANCE:
 
 DONT_DO:
 - <specific pattern that would fragment the design system>
-- <hardcoded value to avoid — use token instead>" \
+- <hardcoded value to avoid — use token instead>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES
+
+$STANDARD_OUTPUT_SUFFIX" \
     --allowedTools "Read" \
     --no-conversation 2>/dev/null)
 
@@ -83,6 +85,10 @@ $(echo "$UI_SPEC" | sed -n '/^DONT_DO:/,$p' | grep '^-' | sed 's/^- /✗ /')
 
 Product Constitution §3: All UI must derive from approved Claude Design components
 and tokens. One-off patterns introduce visual fragmentation and must be avoided."
+
+  extract_standard "$UI_SPEC"
+  COMMENT="$COMMENT
+$(standard_fields_block)"
 
   jira_comment "$KEY" "$COMMENT"
   echo "UI Agent: §3 compliance spec posted to $KEY"
