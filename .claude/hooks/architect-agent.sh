@@ -7,7 +7,8 @@ source "$SCRIPT_DIR/jira.sh"
 
 # ── Fetch unrefined stories ────────────────────────────────────────────────
 STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22To+Do%22&maxResults=20&fields=summary,description,status")
-COUNT=$(echo "$STORIES" | jq '.issues | length')
+COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
+COUNT=${COUNT:-0}
 
 if [ "$COUNT" -eq 0 ]; then
   exit 0

@@ -10,7 +10,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ── Check for newly-done stories ───────────────────────────────────────────
 DONE_STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+status=Done+AND+updated>=-1h&maxResults=20&fields=summary,fixVersions")
-COUNT=$(echo "$DONE_STORIES" | jq '.issues | length')
+COUNT=$(echo "$DONE_STORIES" | jq '.issues | length' 2>/dev/null)
+COUNT=${COUNT:-0}
 
 [ "$COUNT" -eq 0 ] && exit 0
 

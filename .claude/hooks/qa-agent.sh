@@ -8,7 +8,8 @@ source "$SCRIPT_DIR/jira.sh"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22In+Review%22&maxResults=10&fields=summary,description")
-COUNT=$(echo "$STORIES" | jq '.issues | length')
+COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
+COUNT=${COUNT:-0}
 
 [ "$COUNT" -eq 0 ] && exit 0
 
