@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Product Memory Agent — Engineering Constitution §11 + Governance §6
-# Records: architecture decisions, known limitations, technical debt,
-# release learnings, recurring bugs, integration constraints
-# All significant AI decisions must be stored in Product Memory
+# Product Memory Agent — Product Constitution §7, Engineering Constitution §11, Governance §6
+# Records: architecture decisions, UX rationale, rejected approaches,
+# technical debt, release learnings, recurring usability issues, security/risk events
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
@@ -18,21 +17,22 @@ COUNT=${COUNT:-0}
 
 TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-# Bootstrap file if absent
 if [ ! -f "$MEMORY_FILE" ]; then
   cat > "$MEMORY_FILE" << 'EOF'
 # Product Memory
 ## SprintOps Console
 
-Stores significant AI decisions per Engineering Constitution §11 and Governance §6.
+Significant decisions per Product Constitution §7, Engineering Constitution §11, Governance §6.
 
-Sections:
-- Architecture Decisions
-- Known Limitations
-- Technical Debt Log
-- Release Learnings
-- Recurring Issues
-- Integration Constraints
+Sections captured per session:
+- Architecture Decisions (ADR flags from Architect Agent)
+- UX Rationale (from UX Designer Agent)
+- Rejected Approaches (from Architect alternatives)
+- Technical Debt (from Tech Debt Agent)
+- Release Learnings (from Deploy Specialist)
+- Recurring Usability Issues (from QA failures)
+- Security Notes (HIGH risk flags)
+- Release Risk Events (RED flags)
 
 Human accountability is retained for all entries.
 
@@ -40,108 +40,132 @@ Human accountability is retained for all entries.
 EOF
 fi
 
-# ── Extract structured memory from AI agent Jira comments ─────────────────
+# ── Collect entries from AI agent Jira comments ────────────────────────────
 ARCH_DECISIONS=""
+UX_RATIONALE=""
 TECH_DEBT_ITEMS=""
 RELEASE_LEARNINGS=""
+USABILITY_ISSUES=""
 SECURITY_NOTES=""
 RISK_NOTES=""
-GENERAL_DECISIONS=""
+GOV_FLAGS=""
 
 while IFS='|' read -r KEY SUMMARY STATUS; do
   ISSUE_COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=30")
-
-  # Architecture decisions (from ARCHITECT agent — ADR flagged items)
-  ADR_LINES=$(echo "$ISSUE_COMMENTS" | jq -r '
+  ALL_TEXT=$(echo "$ISSUE_COMMENTS" | jq -r '
     .comments[].body.content[]?.content[]?.text // ""
-  ' 2>/dev/null | grep 'ADR REQUIRED\|DOCUMENTATION_REQUIRED' | head -3)
-  [ -n "$ADR_LINES" ] && ARCH_DECISIONS="$ARCH_DECISIONS
-### $KEY — $SUMMARY
-$ADR_LINES"
+  ' 2>/dev/null)
 
-  # Tech debt (from tech-debt agent labels)
-  IS_DEBT=$(echo "$ISSUE_COMMENTS" | jq -r '
-    .comments[].body.content[]?.content[]?.text // ""
-  ' 2>/dev/null | grep -c 'Tech Debt\|tech-debt' || true)
-  if [ "$IS_DEBT" -gt 0 ]; then
-    TECH_DEBT_ITEMS="$TECH_DEBT_ITEMS
+  # Architecture decisions (ADR flagged by architect)
+  ADR=$(echo "$ALL_TEXT" | grep 'ADR REQUIRED' | head -2)
+  [ -n "$ADR" ] && ARCH_DECISIONS="$ARCH_DECISIONS
+- $KEY ($SUMMARY): $ADR"
+
+  # UX rationale (from UX designer — recoverability and progressive disclosure decisions)
+  UX=$(echo "$ALL_TEXT" | grep '\[UX DESIGNER\]' | head -1)
+  [ -n "$UX" ] && UX_RATIONALE="$UX_RATIONALE
+- $KEY ($SUMMARY): UX spec recorded [$(date -u '+%Y-%m-%d')]"
+
+  # Technical debt
+  DEBT=$(echo "$ALL_TEXT" | grep -i 'tech.debt\|\[Tech Debt\]' | head -1)
+  [ -n "$DEBT" ] && TECH_DEBT_ITEMS="$TECH_DEBT_ITEMS
 - $KEY: $SUMMARY (Status: $STATUS)"
-  fi
 
-  # Release learnings (from DEPLOY SPECIALIST)
-  DEPLOY_NOTES=$(echo "$ISSUE_COMMENTS" | jq -r '
-    .comments[].body.content[]?.content[]?.text // ""
-  ' 2>/dev/null | grep '\[DEPLOY SPECIALIST\]' | head -2)
-  [ -n "$DEPLOY_NOTES" ] && RELEASE_LEARNINGS="$RELEASE_LEARNINGS
-- $KEY: $DEPLOY_NOTES"
+  # Release learnings (deploy specialist notes)
+  DEPLOY=$(echo "$ALL_TEXT" | grep '\[DEPLOY SPECIALIST\]' | head -1)
+  [ -n "$DEPLOY" ] && RELEASE_LEARNINGS="$RELEASE_LEARNINGS
+- $KEY ($SUMMARY): Release prepared $(date -u '+%Y-%m-%d')"
 
-  # Security notes (from SECURITY agent — HIGH risk only)
-  SEC_HIGH=$(echo "$ISSUE_COMMENTS" | jq -r '
-    .comments[].body.content[]?.content[]?.text // ""
-  ' 2>/dev/null | grep '\[SECURITY\].*HIGH\|HIGH.*\[SECURITY\]' | head -2)
+  # Recurring usability issues (QA failures)
+  QA_FAIL=$(echo "$ALL_TEXT" | grep '\[QA LEAD\].*❌\|❌.*\[QA LEAD\]' | head -1)
+  [ -n "$QA_FAIL" ] && USABILITY_ISSUES="$USABILITY_ISSUES
+- $KEY ($SUMMARY): QA failed — check test cases for usability patterns"
+
+  # Security HIGH risk
+  SEC_HIGH=$(echo "$ALL_TEXT" | grep '\[SECURITY\].*HIGH\|HIGH.*Risk' | head -1)
   [ -n "$SEC_HIGH" ] && SECURITY_NOTES="$SECURITY_NOTES
-- $KEY ($SUMMARY): HIGH risk flagged"
+- $KEY ($SUMMARY): HIGH security risk flagged [$(date -u '+%Y-%m-%d')]"
 
-  # Risk notes
-  RISK_RED=$(echo "$ISSUE_COMMENTS" | jq -r '
-    .comments[].body.content[]?.content[]?.text // ""
-  ' 2>/dev/null | grep '\[RELEASE RISK\].*RED\|RED.*\[RELEASE RISK\]' | head -1)
-  [ -n "$RISK_RED" ] && RISK_NOTES="$RISK_NOTES
-- $KEY ($SUMMARY): RED risk flagged at $(date -u '+%Y-%m-%d')"
+  # Release RED risk
+  RED=$(echo "$ALL_TEXT" | grep '\[RELEASE RISK\].*RED\|RED.*Risk' | head -1)
+  [ -n "$RED" ] && RISK_NOTES="$RISK_NOTES
+- $KEY ($SUMMARY): RED release risk flagged [$(date -u '+%Y-%m-%d')]"
+
+  # Product governance flags
+  GOV_DEFER=$(echo "$ALL_TEXT" | grep '\[PRODUCT GOVERNANCE\].*DEFER\|\[PRODUCT GOVERNANCE\].*FLAG' | head -1)
+  [ -n "$GOV_DEFER" ] && GOV_FLAGS="$GOV_FLAGS
+- $KEY ($SUMMARY): Governance flagged for review [$(date -u '+%Y-%m-%d')]"
 
 done < <(echo "$RECENT" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.status.name)"')
 
-# ── Write to PRODUCT_MEMORY.md ─────────────────────────────────────────────
-ANYTHING_TO_WRITE=0
-[ -n "$ARCH_DECISIONS" ] && ANYTHING_TO_WRITE=1
-[ -n "$TECH_DEBT_ITEMS" ] && ANYTHING_TO_WRITE=1
-[ -n "$RELEASE_LEARNINGS" ] && ANYTHING_TO_WRITE=1
-[ -n "$SECURITY_NOTES" ] && ANYTHING_TO_WRITE=1
-[ -n "$RISK_NOTES" ] && ANYTHING_TO_WRITE=1
+# ── Write only if there's something to record ──────────────────────────────
+ANYTHING=0
+for var in "$ARCH_DECISIONS" "$UX_RATIONALE" "$TECH_DEBT_ITEMS" "$RELEASE_LEARNINGS" \
+           "$USABILITY_ISSUES" "$SECURITY_NOTES" "$RISK_NOTES" "$GOV_FLAGS"; do
+  [ -n "$var" ] && ANYTHING=1 && break
+done
 
-[ "$ANYTHING_TO_WRITE" -eq 0 ] && exit 0
+[ "$ANYTHING" -eq 0 ] && exit 0
 
 {
   echo ""
-  echo "## Session: $TIMESTAMP"
+  echo "## $TIMESTAMP"
   echo ""
 
-  if [ -n "$ARCH_DECISIONS" ]; then
+  [ -n "$ARCH_DECISIONS" ] && {
     echo "### Architecture Decisions"
     echo "$ARCH_DECISIONS"
     echo ""
-  fi
+  }
 
-  if [ -n "$TECH_DEBT_ITEMS" ]; then
-    echo "### Technical Debt Log"
+  [ -n "$UX_RATIONALE" ] && {
+    echo "### UX Rationale"
+    echo "$UX_RATIONALE"
+    echo ""
+  }
+
+  [ -n "$TECH_DEBT_ITEMS" ] && {
+    echo "### Technical Debt"
     echo "$TECH_DEBT_ITEMS"
     echo ""
-  fi
+  }
 
-  if [ -n "$RELEASE_LEARNINGS" ]; then
+  [ -n "$RELEASE_LEARNINGS" ] && {
     echo "### Release Learnings"
     echo "$RELEASE_LEARNINGS"
     echo ""
-  fi
+  }
 
-  if [ -n "$SECURITY_NOTES" ]; then
+  [ -n "$USABILITY_ISSUES" ] && {
+    echo "### Recurring Usability Issues"
+    echo "$USABILITY_ISSUES"
+    echo ""
+  }
+
+  [ -n "$SECURITY_NOTES" ] && {
     echo "### Security Notes (HIGH Risk)"
     echo "$SECURITY_NOTES"
     echo ""
-  fi
+  }
 
-  if [ -n "$RISK_NOTES" ]; then
-    echo "### Release Risk Notes"
+  [ -n "$RISK_NOTES" ] && {
+    echo "### Release Risk Events (RED)"
     echo "$RISK_NOTES"
     echo ""
-  fi
+  }
+
+  [ -n "$GOV_FLAGS" ] && {
+    echo "### Product Governance Flags"
+    echo "$GOV_FLAGS"
+    echo ""
+  }
 
   echo "---"
 } >> "$MEMORY_FILE"
 
 git -C "$REPO_ROOT" add PRODUCT_MEMORY.md 2>/dev/null
 git -C "$REPO_ROOT" diff --cached --quiet || \
-  git -C "$REPO_ROOT" commit -m "chore: update Product Memory log [$TIMESTAMP]" 2>/dev/null
+  git -C "$REPO_ROOT" commit -m "chore: update Product Memory [$TIMESTAMP]" 2>/dev/null
 
-echo "Product Memory Agent: Memory log updated with arch decisions, debt, learnings, security/risk notes"
+echo "Product Memory Agent: Log updated with §7 §11 entries (UX rationale, debt, learnings, risks)"
 exit 0

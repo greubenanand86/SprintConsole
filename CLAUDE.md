@@ -64,16 +64,54 @@ React 18 sprint management tool. No build step — Babel transpiles JSX in-brows
 - Track significant user interactions for analytics
 - Provide meaningful empty/error state messages to users
 
+## Product Constitution Principles (v1.0)
+
+### Simplicity First (§1)
+If a feature requires extensive explanation, the UX needs improvement. Prefer smaller coherent products over large fragmented ones.
+
+### UX Principles (§2)
+Every feature must include: loading states, empty states, error states, offline considerations. Error messages must be clear, suggest recovery, avoid technical jargon, and preserve user progress.
+
+### Design System (§3)
+All UI derives from `sprintops-shared.jsx` components and `colors_and_type.css` tokens. No one-off UI patterns. No visual fragmentation.
+
+### Product Governance (§4)
+Before building any feature, answer: Who benefits? What problem is solved? Why now? What is the maintenance cost? Does similar functionality already exist?
+
+### Delivery (§5)
+A release is not complete without: UX reviewed, QA validated, accessibility checked, rollback available, release notes prepared.
+
+### Analytics (§8)
+Every story should identify what metric proves the feature is working.
+
+### AI Agent Boundaries (§9)
+AI agents may: suggest improvements, generate UX proposals, identify inconsistencies, automate repetitive work.
+AI agents may NOT: autonomously redefine product strategy, bypass governance, introduce uncontrolled complexity, or override release controls.
+
+## Decision Hierarchy
+
+When tradeoffs arise, higher priority wins:
+
+| Priority | Engineering Constitution | Product Constitution |
+|---|---|---|
+| 1 | Security | User trust |
+| 2 | Stability | Accessibility |
+| 3 | User experience | Stability |
+| 4 | Maintainability | Simplicity |
+| 5 | Performance | Maintainability |
+| 6 | Development speed | Speed of delivery |
+| 7 | — | Feature expansion |
+
 ## Governance
 
-- AI agents may not deploy to production without human approval (§9)
+- AI agents may not deploy to production without human approval (Engineering §9 / AI Governance §3)
 - Security-sensitive changes require Security Agent review before production
 - All significant decisions recorded in `PRODUCT_MEMORY.md`
-- Technical debt tracked in Jira (§12)
+- Technical debt tracked in Jira (Engineering §12)
 
 ## Known Tech Debt
 
-- No TypeScript (constitution §2 mandates it — migration is a backlog item)
-- No automated test suite (constitution §6 mandates unit + integration tests)
-- No structured logging library (constitution §7)
-- No CI pipeline (constitution §8)
+- No TypeScript (Engineering Constitution §2 mandates it — migration is a backlog item)
+- No automated test suite (Engineering Constitution §6 mandates unit + integration tests)
+- No structured logging library (Engineering Constitution §7)
+- No CI pipeline (Engineering Constitution §8)

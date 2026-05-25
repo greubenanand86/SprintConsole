@@ -14,6 +14,14 @@
           },
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/product-governance-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 120,
+            "statusMessage": "Product Governance — §4 story review (who benefits, problem, cost, duplicates)..."
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/architect-agent.sh",
             "async": true,
             "asyncRewake": true,

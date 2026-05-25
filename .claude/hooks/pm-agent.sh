@@ -19,10 +19,16 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DESIGN_CONTEXT=$(cat "$REPO_ROOT/chats/chat1.md" 2>/dev/null | head -100)
 
 # ── Ask Claude to do gap analysis and produce stories ─────────────────────
-# Governance §5: stories must include business purpose, acceptance criteria,
-# UX considerations, edge cases, QA notes, and release impact awareness.
+# Governance §5 + Product Constitution §4 §8:
+# Stories must include business purpose, AC, UX considerations, edge cases,
+# QA notes, release impact, and analytics instrumentation requirements.
 ANALYSIS=$(claude --print \
-"You are the Product Manager for SprintOps Console (governance §5).
+"You are the Product Manager for SprintOps Console.
+Governance §5 + Product Constitution §4 §8 apply.
+
+Product Constitution §10 Decision Hierarchy:
+1. User trust  2. Accessibility  3. Stability  4. Simplicity
+5. Maintainability  6. Speed of delivery  7. Feature expansion
 
 EXISTING JIRA ISSUES (already created — do NOT duplicate these):
 $(echo "$EXISTING" | jq -r '.issues[] | "- [\(.fields.issuetype.name)] \(.key): \(.fields.summary)"' 2>/dev/null || echo 'None yet')
@@ -36,16 +42,17 @@ The SprintOps Console has 4 pages:
 
 TASK: Gap analysis — produce stories for missing features.
 
-Per governance §5, each story MUST include:
-- Business purpose (why this matters to the product/user)
+Each story MUST include all of:
+- Business purpose (§4: why this matters — who benefits, what problem)
 - Acceptance criteria
-- UX considerations
+- UX considerations (§2: clarity, recoverability, loading/empty/error states)
 - Edge cases
 - QA notes
-- Release impact awareness
+- Release impact
+- Analytics event (§8: what metric proves this feature is working?)
 
 For each story output EXACTLY this pipe-separated format (one story per line):
-STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>
+STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>|<analytics event to track>
 
 Only output stories NOT already in the existing issues list. Output 8-12 stories. No extra text." \
   --allowedTools "Read,Glob" \
@@ -88,7 +95,7 @@ fi
 CREATED=0
 SKIPPED=0
 
-while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE QA_NOTE RELEASE_IMPACT; do
+while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE QA_NOTE RELEASE_IMPACT ANALYTICS_EVENT; do
   [ "$TYPE" != "STORY" ] && continue
   [ -z "$TITLE" ] && continue
 
@@ -112,6 +119,7 @@ while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE
     --arg edge "${EDGE_CASE:-Not specified}" \
     --arg qa "${QA_NOTE:-Not specified}" \
     --arg impact "${RELEASE_IMPACT:-Low}" \
+    --arg analytics "${ANALYTICS_EVENT:-Not specified}" \
     '{
       "type": "doc", "version": 1,
       "content": [
@@ -128,7 +136,9 @@ while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"QA Notes"}]},
         {"type":"paragraph","content":[{"type":"text","text":$qa}]},
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Release Impact"}]},
-        {"type":"paragraph","content":[{"type":"text","text":$impact}]}
+        {"type":"paragraph","content":[{"type":"text","text":$impact}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Analytics Event (§8)"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$analytics}]}
       ]
     }')
 

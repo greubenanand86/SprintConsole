@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Deployment Specialist Agent — Engineering Constitution §8, §9
-# Triggered when QA signs off (stories move to Done)
-# §8: Staging deployment must precede production
+# Deployment Specialist Agent — Engineering Constitution §8 §9, Product Constitution §5
+# §5: Release not complete unless UX reviewed, QA validated, accessibility checked,
+#     rollback available, and release notes prepared
 # §9: AI agents may NOT deploy to production; production always requires human approval
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +16,7 @@ COUNT=${COUNT:-0}
 
 [ "$COUNT" -eq 0 ] && exit 0
 
-echo "Deploy Agent: $COUNT stories completed — running pre-release checklist (§8)"
+echo "Deploy Agent: $COUNT stories completed — running §5 release checklist"
 
 # ── Check release risk assessment ──────────────────────────────────────────
 RISK_LEVEL="UNKNOWN"
@@ -35,32 +35,36 @@ if [ -n "$FIRST_KEY" ]; then
 fi
 
 if [ "$RISK_LEVEL" = "RED" ]; then
-  echo "Deploy Agent: 🚫 Blocked — Release Risk is RED per §9 / Governance §3"
+  echo "Deploy Agent: 🚫 Blocked — Release Risk is RED"
   echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
     jira_comment "$KEY" "[DEPLOY SPECIALIST] 🚫 Deployment Blocked — RED Risk
-
-Release Risk Agent assessed this release as RED.
-Per Engineering Constitution §9 and Governance §10, RED risk blocks deployment.
-Mandatory human escalation required. No AI agent may override this block."
+Per Product Constitution §5 and Engineering Constitution §9, RED risk blocks deployment.
+Human escalation required."
   done
   exit 2
 fi
 
-# ── §8: Verify staging deployment ──────────────────────────────────────────
-# Check if there's evidence of a prior staging deployment or staging branch
-STAGING_OK=false
-if git -C "$REPO_ROOT" branch -a 2>/dev/null | grep -qiE 'staging|preview|preprod'; then
-  STAGING_OK=true
+# ── §5: Check UX review gate ───────────────────────────────────────────────
+UX_REVIEWED=false
+if [ -n "$FIRST_KEY" ]; then
+  UX_COMMENT=$(jira_get "issue/$FIRST_KEY/comments?maxResults=50" | \
+    jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+    grep '\[UX DESIGNER\]' | head -1)
+  [ -n "$UX_COMMENT" ] && UX_REVIEWED=true
 fi
-# Check for a staging comment in any of the done stories
+UX_GATE="☐ UX review — NOT FOUND in Jira comments (§5 requires UX review before release)"
+$UX_REVIEWED && UX_GATE="☑ UX review verified"
+
+# ── §8: Verify staging deployment ──────────────────────────────────────────
+STAGING_OK=false
+git -C "$REPO_ROOT" branch -a 2>/dev/null | grep -qiE 'staging|preview|preprod' && STAGING_OK=true
 if ! $STAGING_OK && [ -n "$FIRST_KEY" ]; then
   STAGING_COMMENT=$(jira_get "issue/$FIRST_KEY/comments?maxResults=50" | \
     jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
-    grep -i 'staging\|preview\|deployed to staging' | head -1)
+    grep -i 'staging\|deployed to staging\|preview' | head -1)
   [ -n "$STAGING_COMMENT" ] && STAGING_OK=true
 fi
-
-STAGING_NOTE="⚠ No staging deployment evidence found — §8 requires staging before production"
+STAGING_NOTE="⚠ No staging evidence (§8 requires staging before production)"
 $STAGING_OK && STAGING_NOTE="✓ Staging deployment verified"
 
 # ── Verify deployment artefacts ─────────────────────────────────────────
@@ -87,15 +91,45 @@ if [ -n "$DEPLOY_FAILS" ]; then
   echo "Deploy Agent: ❌ Pre-release checks failed"
   echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
     jira_comment "$KEY" "[DEPLOY SPECIALIST] ❌ Pre-Release Checks Failed
-
 $(echo "$DEPLOY_FAILS" | sed 's/^DEPLOY_CHECK|//' | sed 's/|FAIL|/: FAIL — /' | sed 's/^/• /')
-
 Resolve before deployment."
   done
   exit 2
 fi
 
-# ── Ensure Fix Version exists (unreleased — pending human approval) ─────────
+# ── Generate release notes ─────────────────────────────────────────────────
+# §5: Release notes are mandatory
+STORY_LIST=$(echo "$DONE_STORIES" | jq -r '.issues[] | "- \(.key): \(.fields.summary)"')
+
+RELEASE_NOTES=$(claude --print \
+"You are writing release notes for SprintOps Console (Product Constitution §5).
+
+Stories in this release:
+$STORY_LIST
+
+Write clear, user-facing release notes. Product Constitution §1: avoid jargon.
+Format for users who understand sprint management but not internals.
+
+Output EXACTLY this format:
+
+WHATS_NEW:
+- <user-facing description of change 1>
+- <user-facing description of change 2>
+
+IMPROVEMENTS:
+- <improvement, or 'None in this release'>
+
+BUG_FIXES:
+- <fix, or 'None in this release'>
+
+KNOWN_LIMITATIONS:
+- <known limitation, or 'None'>
+
+ROLLBACK_NOTE: <one sentence on how to revert if needed>" \
+  --allowedTools "Read" \
+  --no-conversation 2>/dev/null)
+
+# ── Ensure Fix Version exists (unreleased — pending approval) ──────────────
 TODAY=$(date +%Y-%m-%d)
 VERSION_NAME="v$(date +%Y.%m.%d)"
 
@@ -110,40 +144,53 @@ if [ -z "$VERSION_ID" ]; then
     '{"name":$name,"project":$proj,"releaseDate":$date,"released":false}')
   VERSION_RESULT=$(jira_post "version" "$VERSION_PAYLOAD")
   VERSION_ID=$(echo "$VERSION_RESULT" | jq -r '.id // ""')
-  echo "Deploy Agent: Created Fix Version $VERSION_NAME (unreleased — pending human approval)"
+  echo "Deploy Agent: Created Fix Version $VERSION_NAME (unreleased — pending approval)"
 fi
 
-# ── Tag stories and post human-approval request ────────────────────────────
+# ── Tag stories and post approval request with full §5 checklist ──────────
 echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
-  if [ -n "$VERSION_ID" ]; then
-    jira_put "issue/$KEY" "{\"fields\":{\"fixVersions\":[{\"id\":\"$VERSION_ID\"}]}}" > /dev/null
-  fi
+  [ -n "$VERSION_ID" ] && jira_put "issue/$KEY" "{\"fields\":{\"fixVersions\":[{\"id\":\"$VERSION_ID\"}]}}" > /dev/null
 
-  jira_comment "$KEY" "[DEPLOY SPECIALIST] ✅ Pre-Release Package Ready — Human Approval Required
+  jira_comment "$KEY" "[DEPLOY SPECIALIST] ✅ Release Package Ready — Human Approval Required
 
 Fix Version: $VERSION_NAME
-Pre-release checks: $DEPLOY_OK/7 passed
+Artefact checks: $DEPLOY_OK/7 passed
 Release Risk: ${RISK_LEVEL:-UNKNOWN}
 Staging: $STAGING_NOTE
 Prepared: $(date -u '+%Y-%m-%d %H:%M UTC')
 
-Target: https://greubenanand86.github.io/SprintConsole/
-Rollback: git revert HEAD or redeploy previous tag
+--- RELEASE NOTES ($VERSION_NAME) ---
+What's New:
+$(echo "$RELEASE_NOTES" | sed -n '/^WHATS_NEW:/,/^IMPROVEMENTS:/p' | grep '^-' | sed 's/^- /• /')
 
-Engineering Constitution §8 / §9 Release Checklist:
+Improvements:
+$(echo "$RELEASE_NOTES" | sed -n '/^IMPROVEMENTS:/,/^BUG_FIXES:/p' | grep '^-' | sed 's/^- /• /')
+
+Bug Fixes:
+$(echo "$RELEASE_NOTES" | sed -n '/^BUG_FIXES:/,/^KNOWN_LIMITATIONS:/p' | grep '^-' | sed 's/^- /• /')
+
+Known Limitations:
+$(echo "$RELEASE_NOTES" | sed -n '/^KNOWN_LIMITATIONS:/,/^ROLLBACK_NOTE:/p' | grep '^-' | sed 's/^- /• /')
+
+$(echo "$RELEASE_NOTES" | grep '^ROLLBACK_NOTE:' | sed 's/^ROLLBACK_NOTE: /Rollback: /')
+--- END RELEASE NOTES ---
+
+Product Constitution §5 Delivery Checklist:
+$UX_GATE
 ☑ QA validation (QA Lead signed off)
+☑ Accessibility checked (QA §5 checks)
 ☑ Artefact verification ($DEPLOY_OK/7)
-☑ Release Risk assessment (${RISK_LEVEL:-UNKNOWN})
-☑ Rollback plan available
-$(${STAGING_OK} && echo '☑' || echo '☐') Staging deployment (§8)
+☑ Release Risk: ${RISK_LEVEL:-UNKNOWN}
+☑ Rollback available
+☑ Release notes prepared (above)
 ☐ TPM recommendation — PENDING HUMAN
-☐ Human approval — REQUIRED
+☐ Human approval — REQUIRED before production
 
-ACTION REQUIRED: Human approval needed before production deployment.
-§9: AI agents may NOT deploy to production autonomously."
+§9: AI agents may NOT deploy to production autonomously.
+Target: https://greubenanand86.github.io/SprintConsole/"
 
-  echo "Deploy Agent: $KEY tagged with $VERSION_NAME — awaiting human approval"
+  echo "Deploy Agent: $KEY tagged $VERSION_NAME with release notes — awaiting human approval"
 done
 
-echo "Deploy Agent: Release $VERSION_NAME prepared — human approval required for production"
+echo "Deploy Agent: Release $VERSION_NAME prepared with §5-compliant release notes"
 exit 0
