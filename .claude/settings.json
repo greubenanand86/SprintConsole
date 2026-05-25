@@ -9,7 +9,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 180,
-            "statusMessage": "PM Agent — gap analysis & story creation...",
+            "statusMessage": "PM Agent — gap analysis & story creation (§5)...",
             "rewakeSummary": "PM Agent: stories created in Jira"
           },
           {
@@ -18,7 +18,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 180,
-            "statusMessage": "Architect + QA — refining backlog stories...",
+            "statusMessage": "Architect — refining stories with §1 §2 §3 §10 compliance...",
             "rewakeSummary": "Architect Agent: stories refined"
           },
           {
@@ -39,11 +39,19 @@
           },
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/observability-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 120,
+            "statusMessage": "Observability Agent — logging, error monitoring & analytics specs (§7)..."
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/security-agent.sh",
             "async": true,
             "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "Security Agent — reviewing sensitive-area stories..."
+            "statusMessage": "Security Agent — §4 checklist review..."
           },
           {
             "type": "command",
@@ -51,7 +59,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 240,
-            "statusMessage": "QA Lead — creating test cases & running checks...",
+            "statusMessage": "QA Lead — test cases, accessibility (§5), performance (§13)...",
             "rewakeSummary": "QA Lead: stories failed — back to dev"
           },
           {
@@ -60,7 +68,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 120,
-            "statusMessage": "Release Risk Agent — assessing deployment risk...",
+            "statusMessage": "Release Risk Agent — Green/Yellow/Red assessment (§9)...",
             "rewakeSummary": "Release Risk Agent: RED risk — deployment blocked"
           },
           {
@@ -69,8 +77,16 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 120,
-            "statusMessage": "Deploy Specialist — pre-release checks & human approval request...",
+            "statusMessage": "Deploy Specialist — pre-release checks & human approval request (§8 §9)...",
             "rewakeSummary": "Deploy Agent: deployment issue found"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/tech-debt-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 180,
+            "statusMessage": "Tech Debt Agent — scanning and tracking debt in Jira (§12)..."
           },
           {
             "type": "command",
@@ -78,7 +94,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 60,
-            "statusMessage": "Product Memory — recording significant AI decisions..."
+            "statusMessage": "Product Memory — recording arch decisions, debt, learnings (§11)..."
           }
         ]
       }

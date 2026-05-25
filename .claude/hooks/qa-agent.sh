@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# QA Lead Agent
-# For stories In Review: creates sub-task test cases, runs logic checks, signs off or flags back
+# QA Lead Agent — Engineering Constitution §5, §6, §13
+# For stories In Review: creates sub-task test cases, runs logic checks,
+# accessibility checks (§5), test level validation (§6), performance checks (§13),
+# then signs off or flags back
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
@@ -21,7 +23,7 @@ FALLBACK_ID="${SUBTASK_ID:-$TASK_ID}"
 
 echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
 
-  # ── Generate test cases ─────────────────────────────────────────────────
+  # ── Generate functional test cases ──────────────────────────────────────
   QA_PLAN=$(claude --print \
 "You are a QA Lead writing test cases for SprintOps Console.
 
@@ -73,30 +75,46 @@ EDGE|<edge case title>|<steps>|<expected result>" \
 
   # ── Run automated logic checks ──────────────────────────────────────────
   AUTO_RESULT=$(claude --print \
-"You are a QA automation engineer. Run logic checks on the SprintOps Console codebase for this story:
+"You are a QA automation engineer. Run checks on the SprintOps Console codebase for this story:
 
 Story: $SUMMARY
 
 Check:
-1. Are there null/undefined guards for all data accesses related to this feature?
-2. Are state updates immutable (no direct mutation)?
-3. Are all event listeners cleaned up in useEffect returns?
-4. Does the feature work correctly with empty data (no items)?
+1. LOGIC: Null/undefined guards for all data accesses related to this feature
+2. LOGIC: State updates are immutable (no direct mutation)
+3. LOGIC: Event listeners cleaned up in useEffect returns
+4. LOGIC: Feature works correctly with empty data (no items)
+5. ACCESSIBILITY (§5): Interactive elements use semantic HTML (button/a, not div onClick)
+6. ACCESSIBILITY (§5): Icon-only buttons have aria-label or title
+7. ACCESSIBILITY (§5): Keyboard navigation works (tabIndex, onKeyDown for custom controls)
+8. ACCESSIBILITY (§5): Error/status messages are announced to screen readers (aria-live or role=alert)
+9. PERFORMANCE (§13): No unnecessary re-renders (stable callback/object references)
+10. PERFORMANCE (§13): No blocking synchronous operations in render path
+11. TESTING (§6): Are there unit-testable pure functions extracted from this feature?
+12. OBSERVABILITY (§7): Does this feature have error boundary coverage?
 
-Read the relevant .jsx files and answer each check: PASS or FAIL with reason.
+Read the relevant .jsx files. Answer each check: PASS or FAIL with reason.
 Output format: CHECK|<name>|PASS|<note> or CHECK|<name>|FAIL|<reason>" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
   FAILURES=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|FAIL|' | sed 's/^CHECK|//' | sed 's/|FAIL|/: FAIL — /')
   PASSES=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|PASS|' | wc -l | tr -d ' ')
+  TOTAL_CHECKS=$(echo "$AUTO_RESULT" | grep '^CHECK|' | wc -l | tr -d ' ')
+  TOTAL_CHECKS=${TOTAL_CHECKS:-12}
 
   # ── Post QA summary and sign off / flag ─────────────────────────────────
   if [ -z "$FAILURES" ]; then
-    COMMENT="[QA LEAD] ✅ QA Sign-off
+    COMMENT="[QA LEAD] ✅ QA Sign-off — §5 §6 §13 Compliant
 
 $TC_COUNT test cases created as sub-tasks.
-Automated checks: $PASSES/4 PASSED
+Automated checks: $PASSES/$TOTAL_CHECKS PASSED
+
+Checks passed:
+• Logic integrity ✓
+• Accessibility (§5) ✓
+• Performance (§13) ✓
+• Observability (§7) ✓
 
 All acceptance criteria verified. Story is READY FOR PRODUCTION.
 Recommend: move to Done."
@@ -107,15 +125,18 @@ Recommend: move to Done."
     COMMENT="[QA LEAD] ❌ QA Failed — Back to Dev
 
 $TC_COUNT test cases created.
-Automated checks found issues:
+Automated checks: $PASSES/$TOTAL_CHECKS passed.
+
+Issues found:
 $(echo "$FAILURES" | sed 's/^/• /')
 
-Please fix before re-review."
+Engineering Constitution requirements not met. Please fix before re-review.
+Refer to CLAUDE.md for component and accessibility standards."
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "In Progress"
     echo "QA Agent: ❌ $KEY failed QA — moved back to In Progress"
     echo "$FAILURES"
-    exit 2  # rewake Claude with failures
+    exit 2
   fi
 
 done
