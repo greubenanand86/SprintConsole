@@ -132,10 +132,22 @@ Security Baseline v1.0 (SECURITY_BASELINE.md — governs all security aspects):
 - Mandatory Security Agent review before production for auth changes, data control changes, sensitive APIs, integrations, vulnerabilities
 - Final principle: security is built in from start, not added at release time
 
+Lightweight Legal & Compliance Governance v1.0 (LEGAL_COMPLIANCE_GOVERNANCE.md — risk identification, not AI attorney):
+- Legal & Compliance Agent identifies risks early; does NOT provide legal sign-off (human counsel required)
+- Data privacy: GDPR/CCPA/PIPEDA implications, consent flows, right to deletion, cross-border transfers, third-party agreements
+- Accessibility: WCAG 2.1 AA, ADA, Section 508 compliance; flag UI without accessibility review
+- Student data (if applicable): FERPA confidentiality, PPRA parental notification, marketing restrictions, third-party access
+- Survey anonymity: anonymous handling, aggregation before analysis
+- Credential data exposure: no plaintext passwords/tokens in logs, backups, error messages
+- Third-party SDK: privacy impact assessment, security posture, vendor agreements (DSA/DPA), due diligence
+- Terms/policy alignment: feature aligns with published ToS and privacy policy
+- Release blocking: blocks if consent missing, privacy-sensitive unreviewed, accessibility unresolved, SDK risk unknown, legal review pending
+- Escalates to human counsel: legal holds, DPA needs, contract review, policy updates, regulatory questions, breaches, litigation
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
-  + Environment Governance v1.0 + Security Baseline v1.0 + Jira Workflow Governance v1.1
-  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
+  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

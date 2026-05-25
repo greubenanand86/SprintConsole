@@ -333,3 +333,75 @@ Local → Development → Staging → Production
 **Governance refs:** Security Baseline v1.0, Engineering Constitution §4, API Contract Standards v1.0, Environment Governance v1.0, Release Management Playbook §3 §11
 
 ---
+
+## Legal & Compliance Governance — 2026-05-25
+
+### ADR-008: Lightweight Legal & Compliance Governance v1.0 Adopted
+
+**Decision:** Lightweight Legal & Compliance Governance v1.0 establishes a Legal & Compliance Agent as a risk-identification layer to flag legal/compliance issues early without replacing human legal counsel. Full document in `LEGAL_COMPLIANCE_GOVERNANCE.md`.
+
+**Rationale:** As SprintOps Console evolves to handle user data (even in prototype form), privacy risks (GDPR/CCPA), accessibility requirements (WCAG), and third-party integrations increase. A lightweight compliance agent catches issues early and escalates to human counsel, reducing legal risk without heavy bureaucracy.
+
+**Agent Responsibilities (risk identification only):**
+- Data privacy checklist (GDPR/CCPA/PIPEDA, consent, deletion, cross-border transfers)
+- Consent flow review (explicit user consent for data uses)
+- Accessibility compliance reminders (WCAG 2.1 AA, ADA, Section 508)
+- Student/learner data risk checks (FERPA, PPRA, state laws)
+- Survey anonymity review (anonymous handling, aggregation)
+- Credential data exposure review (no plaintext passwords/tokens in logs)
+- Third-party SDK risk flagging (privacy impact, security posture, vendor agreements)
+- Terms/policy alignment checks (feature aligns with published ToS/privacy policy)
+- Legal escalation recommendations (flag HIGH-RISK items for counsel)
+
+**Agent Authority:**
+- MAY: flag risks, request human review, block release if checks missing
+- MAY NOT: approve contracts, provide final legal sign-off, replace human counsel
+
+**Release Blocking Conditions:**
+- Consent flow missing (GDPR/CCPA requirement)
+- Privacy-sensitive behavior unreviewed (new data collection)
+- Accessibility risk unresolved (WCAG violations)
+- Third-party SDK risk unknown (no privacy/security assessment)
+- Required human legal review pending (HIGH-RISK items)
+- Student data handling unreviewed (FERPA/PPRA implications)
+- Credential exposure risk unreviewed
+
+**Risk Levels:**
+- GREEN: no data changes, no accessibility issues, no third-party SDK
+- YELLOW: minor data changes (within policy), accessibility review recommended (not blocking)
+- RED: new data collection, student data changes, unknown SDK, blocking release
+
+**Compliance Checklists (6 mandatory):**
+1. Data Privacy: 12 items (collection, notice, policy, consent, deletion, retention, transfer, processors)
+2. Accessibility: 10 items (WCAG AA, contrast, alt text, keyboard nav, screen reader, focus, labels, errors, color, captions)
+3. Student Data (if applicable): 7 items (FERPA, PPRA, marketing, third-party access, state laws, breach notification)
+4. Authentication & Credentials: 6 items (no plaintext, no exposure, token security, key protection, rotation, incident response)
+5. Third-Party SDK: 8 items (privacy impact, security posture, DSA/DPA, vendor viability, due diligence, data flow, consent, breach obligations)
+6. Terms/Policy Alignment: automated checks for feature/policy coherence
+
+**Escalation to Human Counsel When:**
+- RED risk (new data, student data, compliance gaps)
+- DPA needed (GDPR)
+- Contract review needed (vendor, SDK)
+- Policy/ToS updates required
+- Regulatory compliance question (HIPAA, FERPA, etc.)
+- Incident response / breach notification
+- Litigation / legal hold
+- IP question
+- Employment law concern
+
+**Integration Points:**
+- Product Manager Agent (scope, regulatory requirements)
+- UX Agent (consent flow UX, accessibility, privacy notice)
+- Architecture Agent (data storage, third-party integrations, data flow)
+- Security Agent (credential handling, breach risk)
+- Release Risk Agent (legal/compliance as release blockers)
+- QA Agent (accessibility testing, consent flow testing, data handling tests)
+
+**Final Principle:** Lightweight risk-identification layer; not an AI attorney. Flags issues early, prevents unreviewed legal risks from production, escalates to human counsel for decisions.
+
+**Impact on current state:** SprintOps Console prototype stores no user data yet. Governance applies when user authentication, data collection, or third-party integrations (analytics, etc.) are introduced.
+
+**Governance refs:** Lightweight Legal & Compliance Governance v1.0, GDPR/CCPA/PIPEDA frameworks, FERPA/PPRA (student data), WCAG 2.1 AA (accessibility), Release Management Playbook §3 §11
+
+---
