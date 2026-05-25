@@ -50,9 +50,14 @@ Each story MUST include all of:
 - QA notes
 - Release impact
 - Analytics event (§8: what metric proves this feature is working?)
+- Priority (Critical/High/Medium/Low — based on user trust impact and §16 hierarchy)
+- Dependencies (other stories or components this requires, or "None")
+- API considerations (ADO API fields/endpoints affected, or "None")
+
+Definition of Ready (§5) — every story must have all of the above before development starts.
 
 For each story output EXACTLY this pipe-separated format (one story per line):
-STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>|<analytics event to track>
+STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>|<analytics event>|<priority>|<dependencies>|<api considerations>
 
 Only output stories NOT already in the existing issues list. Output 8-12 stories. No extra text." \
   --allowedTools "Read,Glob" \
@@ -95,7 +100,7 @@ fi
 CREATED=0
 SKIPPED=0
 
-while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE QA_NOTE RELEASE_IMPACT ANALYTICS_EVENT; do
+while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE QA_NOTE RELEASE_IMPACT ANALYTICS_EVENT PRIORITY DEPENDENCIES API_NOTES; do
   [ "$TYPE" != "STORY" ] && continue
   [ -z "$TITLE" ] && continue
 
@@ -120,6 +125,8 @@ while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE
     --arg qa "${QA_NOTE:-Not specified}" \
     --arg impact "${RELEASE_IMPACT:-Low}" \
     --arg analytics "${ANALYTICS_EVENT:-Not specified}" \
+    --arg deps "${DEPENDENCIES:-None}" \
+    --arg api "${API_NOTES:-None}" \
     '{
       "type": "doc", "version": 1,
       "content": [
@@ -138,21 +145,35 @@ while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Release Impact"}]},
         {"type":"paragraph","content":[{"type":"text","text":$impact}]},
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Analytics Event (§8)"}]},
-        {"type":"paragraph","content":[{"type":"text","text":$analytics}]}
+        {"type":"paragraph","content":[{"type":"text","text":$analytics}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Dependencies (§5 DoR)"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$deps}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"API Considerations (§5 DoR)"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$api}]}
       ]
     }')
+
+  # Map priority string to Jira priority name
+  case "${PRIORITY:-Medium}" in
+    Critical) JIRA_PRIORITY="Highest" ;;
+    High)     JIRA_PRIORITY="High" ;;
+    Low)      JIRA_PRIORITY="Low" ;;
+    *)        JIRA_PRIORITY="Medium" ;;
+  esac
 
   PAYLOAD=$(jq -n \
     --arg proj "$JIRA_PROJECT" \
     --arg typeid "$STORY_TYPE_ID" \
     --arg summary "$TITLE" \
     --argjson desc "$DESCRIPTION" \
+    --arg priority "$JIRA_PRIORITY" \
     '{
       "fields": {
         "project": {"key": $proj},
         "issuetype": {"id": $typeid},
         "summary": $summary,
-        "description": $desc
+        "description": $desc,
+        "priority": {"name": $priority}
       }
     }')
 
@@ -160,7 +181,9 @@ while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE
   KEY=$(echo "$RESULT" | jq -r '.key // "ERROR"')
 
   if [ "$KEY" != "ERROR" ] && [ "$KEY" != "null" ]; then
-    echo "PM Agent: Created $KEY — $TITLE"
+    echo "PM Agent: Created $KEY [${JIRA_PRIORITY}] — $TITLE"
+    # Transition to Triage (§3 lifecycle: Idea/Request → Triage)
+    jira_transition "$KEY" "Triage" 2>/dev/null || true
     CREATED=$((CREATED + 1))
   else
     echo "PM Agent: Failed to create — $TITLE"

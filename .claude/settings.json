@@ -9,7 +9,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 180,
-            "statusMessage": "PM Agent — gap analysis & story creation (§5)...",
+            "statusMessage": "PM Agent — gap analysis & story creation with §5 DoR fields (priority, deps, API)...",
             "rewakeSummary": "PM Agent: stories created in Jira"
           },
           {
@@ -26,7 +26,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 180,
-            "statusMessage": "Architect — refining stories with §1 §2 §3 §10 compliance...",
+            "statusMessage": "Architect — refining stories (Ready for Refinement → Refined)...",
             "rewakeSummary": "Architect Agent: stories refined"
           },
           {
@@ -35,7 +35,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "UX Agent — adding flow specs to in-progress stories..."
+            "statusMessage": "UX Agent — flow specs for In Development stories (§2 §13)..."
           },
           {
             "type": "command",
@@ -43,7 +43,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "UI Agent — adding visual specs to in-progress stories..."
+            "statusMessage": "UI Agent — design system compliance check (§3)..."
           },
           {
             "type": "command",
@@ -59,7 +59,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 120,
-            "statusMessage": "Security Agent — §4 checklist review..."
+            "statusMessage": "Security Agent — Code Review stage §4 security checklist..."
           },
           {
             "type": "command",
@@ -67,8 +67,17 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 240,
-            "statusMessage": "QA Lead — test cases, accessibility (§5), performance (§13)...",
-            "rewakeSummary": "QA Lead: stories failed — back to dev"
+            "statusMessage": "QA Lead — §8 test cases + bugs, accessibility (§5), → Product Acceptance...",
+            "rewakeSummary": "QA Lead: stories failed — §8 bugs filed, back to In Development"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/product-acceptance-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 180,
+            "statusMessage": "Product Acceptance — §7 §6 DoD validation → Ready for Release...",
+            "rewakeSummary": "Product Acceptance: story rejected — back to In Development"
           },
           {
             "type": "command",
@@ -76,7 +85,7 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 120,
-            "statusMessage": "Release Risk Agent — Green/Yellow/Red assessment (§9)...",
+            "statusMessage": "Release Risk Agent — Green/Yellow/Red assessment (§11 §16)...",
             "rewakeSummary": "Release Risk Agent: RED risk — deployment blocked"
           },
           {
@@ -84,9 +93,25 @@
             "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/deploy-agent.sh",
             "async": true,
             "asyncRewake": true,
-            "timeout": 120,
-            "statusMessage": "Deploy Specialist — pre-release checks & human approval request (§8 §9)...",
+            "timeout": 180,
+            "statusMessage": "Deploy Specialist — §11 release governance gate + human approval request...",
             "rewakeSummary": "Deploy Agent: deployment issue found"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/monitoring-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 120,
+            "statusMessage": "Monitoring Agent — Released → Monitoring → Done lifecycle (§12)..."
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/incident-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 120,
+            "statusMessage": "Incident Agent — production bug triage, severity, postmortem (§15)..."
           },
           {
             "type": "command",
@@ -94,7 +119,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 180,
-            "statusMessage": "Tech Debt Agent — scanning and tracking debt in Jira (§12)..."
+            "statusMessage": "Tech Debt Agent — scanning and tracking debt in Jira (§14)..."
           },
           {
             "type": "command",
@@ -102,7 +127,7 @@
             "async": true,
             "asyncRewake": false,
             "timeout": 60,
-            "statusMessage": "Product Memory — recording arch decisions, debt, learnings (§11)..."
+            "statusMessage": "Product Memory — recording decisions, debt, learnings, incidents (§7 §11 §15)..."
           }
         ]
       }

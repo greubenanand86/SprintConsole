@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
 
 # ── Fetch unrefined stories ────────────────────────────────────────────────
-STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22To+Do%22&maxResults=20&fields=summary,description,status")
+STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status+in+(%22To+Do%22,%22Idea+%2F+Request%22,%22Triage%22,%22Ready+for+Refinement%22)&maxResults=20&fields=summary,description,status")
 COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
 COUNT=${COUNT:-0}
 

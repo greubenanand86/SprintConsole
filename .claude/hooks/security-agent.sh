@@ -8,7 +8,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
 
-STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22In+Review%22&maxResults=10&fields=summary,description")
+STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status+in+(%22In+Review%22,%22Code+Review%22)&maxResults=10&fields=summary,description")
 COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
 COUNT=${COUNT:-0}
 

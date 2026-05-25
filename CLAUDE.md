@@ -115,3 +115,92 @@ When tradeoffs arise, higher priority wins:
 - No automated test suite (Engineering Constitution §6 mandates unit + integration tests)
 - No structured logging library (Engineering Constitution §7)
 - No CI pipeline (Engineering Constitution §8)
+
+## Jira Workflow Governance v1.1
+
+### Feature Lifecycle (§3)
+
+```
+Idea / Request → Triage → Product Discovery → Ready for Refinement
+→ Refined → Ready for Development → In Development → Code Review
+→ Ready for QA → QA In Progress → Product Acceptance
+→ Ready for Release → Released → Monitoring → Done
+```
+
+### State Ownership (§4)
+
+| State | Agent |
+|---|---|
+| Idea / Request, Triage | PM Agent |
+| Product Discovery | PM Agent + UX Agent |
+| Ready for Refinement → Refined | Architect Agent |
+| In Development | Dev work |
+| Code Review | Security Agent + Architect Agent |
+| Ready for QA → QA In Progress | QA Lead Agent (§8) |
+| Product Acceptance | Product Acceptance Agent (§7) |
+| Ready for Release | Release Risk Agent (§11) |
+| Released → Monitoring → Done | Monitoring Agent (§12) |
+| Production incidents | Incident Agent (§15) |
+
+### Definition of Ready (§5)
+
+A story is not ready for development unless it includes:
+
+- Business objective
+- Acceptance criteria
+- UX expectations
+- Edge cases
+- Dependencies identified
+- API considerations
+- QA notes
+- Release impact awareness
+- Priority assigned
+
+Mandatory: Product review, UX review, and Architecture awareness.
+
+### Definition of Done (§6)
+
+A story is not complete unless:
+
+- Acceptance criteria validated
+- Unit testing completed
+- QA verified (QA Lead sign-off)
+- Accessibility reviewed (§5 pass)
+- Regression impact reviewed
+- Documentation updated (where applicable)
+- Monitoring/logging added (where applicable)
+- Release notes prepared
+- Product Acceptance completed (§7)
+- Product Memory updated (where applicable)
+
+### Sprint Governance (§9 — Suggested Allocation)
+
+| Category | Target |
+|---|---|
+| Feature work | 50-60% |
+| Technical debt | 15-20% |
+| Design debt | 10-15% |
+| Bugs/support | 15-20% |
+
+### Release Governance (§11)
+
+Cannot release unless: QA done, Product Acceptance done, rollback available, monitoring ready, release notes finalized, Release Risk review completed.
+
+### Incident Governance (§15)
+
+Production incidents require: severity classification (P0-P3), rollback assessment, root cause tracking, postmortem. Learnings stored in `PRODUCT_MEMORY.md`.
+
+### Workflow Priority Hierarchy (§16)
+
+1. Production stability
+2. Security/compliance
+3. User experience
+4. Release quality
+5. Maintainability
+6. Delivery speed
+
+### AI Agent Permissions (§10)
+
+Agents **may**: create stories, refine AC, add UX/QA notes, link dependencies, update statuses, generate release notes, detect stale tickets, summarize blockers, file §8-compliant bugs.
+
+Agents **may NOT**: skip QA, skip Product Acceptance, override release gates, close unresolved production bugs, reprioritize roadmap autonomously, bypass governance.

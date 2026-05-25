@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
-# QA Lead Agent — Engineering Constitution §5, §6, §13
-# For stories In Review: creates sub-task test cases, runs logic checks,
-# accessibility checks (§5), test level validation (§6), performance checks (§13),
-# then signs off or flags back
+# QA Lead Agent — Jira Workflow Governance §8, Engineering Constitution §5 §6 §13
+# Runs on stories in Ready for QA / QA In Progress / In Review (Code Review fallback)
+# Pass → "Product Acceptance" (§7 lifecycle)
+# Fail → "In Development" + creates Bug issue per §8 format
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status=%22In+Review%22&maxResults=10&fields=summary,description")
+STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status+in+(%22In+Review%22,%22Ready+for+QA%22,%22QA+In+Progress%22)&maxResults=10&fields=summary,description")
 COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
 COUNT=${COUNT:-0}
 
 [ "$COUNT" -eq 0 ] && exit 0
 
-echo "QA Agent: $COUNT stories in review"
+echo "QA Agent: $COUNT stories ready for QA (§8)"
 
+# Resolve issue type IDs once
 SUBTASK_ID=$(jira_get "project/$JIRA_PROJECT" | jq -r '.issueTypes[] | select(.name=="Sub-task" or .subtask==true) | .id' | head -1)
 TASK_ID=$(jira_get "project/$JIRA_PROJECT" | jq -r '.issueTypes[] | select(.name=="Task") | .id' | head -1)
+BUG_ID=$(jira_get "project/$JIRA_PROJECT" | jq -r '.issueTypes[] | select(.name=="Bug") | .id' | head -1)
 FALLBACK_ID="${SUBTASK_ID:-$TASK_ID}"
 
 echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
 
-  # ── Generate functional test cases ──────────────────────────────────────
+  # ── Generate functional test cases ────────────────────────────────────────
   QA_PLAN=$(claude --print \
 "You are a QA Lead writing test cases for SprintOps Console.
 
@@ -38,7 +40,7 @@ EDGE|<edge case title>|<steps>|<expected result>" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
-  # ── Create sub-task for each test case ──────────────────────────────────
+  # ── Create sub-task for each test case ────────────────────────────────────
   TC_COUNT=0
   while IFS='|' read -r TC_TYPE TC_TITLE TC_STEPS TC_EXPECTED; do
     [[ "$TC_TYPE" != "PASS" && "$TC_TYPE" != "EDGE" ]] && continue
@@ -73,69 +75,139 @@ EDGE|<edge case title>|<steps>|<expected result>" \
 
   done <<< "$QA_PLAN"
 
-  # ── Run automated logic checks ──────────────────────────────────────────
+  # ── Run automated logic + accessibility + performance checks ───────────────
   AUTO_RESULT=$(claude --print \
-"You are a QA automation engineer. Run checks on the SprintOps Console codebase for this story:
+"You are a QA automation engineer. Run checks on SprintOps Console for:
 
 Story: $SUMMARY
 
-Check:
-1. LOGIC: Null/undefined guards for all data accesses related to this feature
+Check ALL of the following — read the relevant .jsx files:
+1. LOGIC: Null/undefined guards for all data accesses
 2. LOGIC: State updates are immutable (no direct mutation)
 3. LOGIC: Event listeners cleaned up in useEffect returns
-4. LOGIC: Feature works correctly with empty data (no items)
-5. ACCESSIBILITY (§5): Interactive elements use semantic HTML (button/a, not div onClick)
+4. LOGIC: Feature works correctly with empty data
+5. ACCESSIBILITY (§5): Interactive elements use semantic HTML (button/a not div onClick)
 6. ACCESSIBILITY (§5): Icon-only buttons have aria-label or title
 7. ACCESSIBILITY (§5): Keyboard navigation works (tabIndex, onKeyDown for custom controls)
-8. ACCESSIBILITY (§5): Error/status messages are announced to screen readers (aria-live or role=alert)
-9. PERFORMANCE (§13): No unnecessary re-renders (stable callback/object references)
-10. PERFORMANCE (§13): No blocking synchronous operations in render path
-11. TESTING (§6): Are there unit-testable pure functions extracted from this feature?
-12. OBSERVABILITY (§7): Does this feature have error boundary coverage?
+8. ACCESSIBILITY (§5): Error/status messages use aria-live or role=alert
+9. PERFORMANCE (§13): No unnecessary re-renders (stable references)
+10. PERFORMANCE (§13): No blocking synchronous operations in render
+11. TESTING (§6): Pure functions extractable and unit-testable?
+12. OBSERVABILITY (§7): Error boundary coverage present?
 
-Read the relevant .jsx files. Answer each check: PASS or FAIL with reason.
-Output format: CHECK|<name>|PASS|<note> or CHECK|<name>|FAIL|<reason>" \
+For each check output EXACTLY:
+CHECK|<name>|PASS|<note>
+or
+CHECK|<name>|FAIL|<steps to reproduce>|<expected result>|<actual result>|<severity P1/P2/P3>" \
     --allowedTools "Read,Glob,Grep" \
     --no-conversation 2>/dev/null)
 
-  FAILURES=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|FAIL|' | sed 's/^CHECK|//' | sed 's/|FAIL|/: FAIL — /')
-  PASSES=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|PASS|' | wc -l | tr -d ' ')
+  PASS_COUNT=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|PASS|' | wc -l | tr -d ' ')
   TOTAL_CHECKS=$(echo "$AUTO_RESULT" | grep '^CHECK|' | wc -l | tr -d ' ')
   TOTAL_CHECKS=${TOTAL_CHECKS:-12}
 
-  # ── Post QA summary and sign off / flag ─────────────────────────────────
-  if [ -z "$FAILURES" ]; then
-    COMMENT="[QA LEAD] ✅ QA Sign-off — §5 §6 §13 Compliant
+  # Parse failures — format: CHECK|name|FAIL|steps|expected|actual|severity
+  FAILURES_RAW=$(echo "$AUTO_RESULT" | grep '^CHECK|' | grep '|FAIL|')
+  FAILURE_COUNT=$(echo "$FAILURES_RAW" | grep -c '|FAIL|' || true)
 
-$TC_COUNT test cases created as sub-tasks.
-Automated checks: $PASSES/$TOTAL_CHECKS PASSED
+  # ── Pass path: → Product Acceptance ───────────────────────────────────────
+  if [ -z "$FAILURES_RAW" ] || [ "$FAILURE_COUNT" -eq 0 ]; then
+    COMMENT="[QA LEAD] ✅ QA Sign-off (§8) — $PASS_COUNT/$TOTAL_CHECKS checks passed
+
+$TC_COUNT test cases created.
 
 Checks passed:
 • Logic integrity ✓
-• Accessibility (§5) ✓
-• Performance (§13) ✓
-• Observability (§7) ✓
+• Accessibility §5 ✓
+• Performance §13 ✓
+• Observability §7 ✓
 
-All acceptance criteria verified. Story is READY FOR PRODUCTION.
-Recommend: move to Done."
+Governance §8 validation complete.
+Transitioning to Product Acceptance (§7 lifecycle)."
     jira_comment "$KEY" "$COMMENT"
-    jira_transition "$KEY" "Done"
-    echo "QA Agent: ✅ $KEY signed off — moving to Done"
+    jira_transition "$KEY" "Product Acceptance"
+    jira_transition "$KEY" "Done"  # fallback if "Product Acceptance" state not configured
+    echo "QA Agent: ✅ $KEY passed — moving to Product Acceptance"
+
   else
-    COMMENT="[QA LEAD] ❌ QA Failed — Back to Dev
+    # ── Fail path: create §8-compliant Bug issues + back to In Development ───
+    BUG_KEYS=""
+    FAILURE_SUMMARY=""
+
+    while IFS='|' read -r _CHECK_HDR CHKNAME _FAIL STEPS EXPECTED ACTUAL SEVERITY; do
+      [ "$_CHECK_HDR" != "CHECK" ] && continue
+      [ "$_FAIL" != "FAIL" ] && continue
+      [ -z "$CHKNAME" ] && continue
+
+      SEVERITY="${SEVERITY:-P2}"
+      BUG_TITLE="[QA] $CHKNAME failure in $SUMMARY"
+      ENV_INFO="SprintOps Console — $(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo 'unknown commit') — Browser/in-browser Babel"
+
+      # §8 mandatory bug fields: title, repro steps, expected, actual, environment, severity, feature association
+      if [ -n "$BUG_ID" ]; then
+        BUG_PAYLOAD=$(jq -n \
+          --arg proj "$JIRA_PROJECT" \
+          --arg typeid "$BUG_ID" \
+          --arg summary "$BUG_TITLE" \
+          --arg steps "${STEPS:-Not captured}" \
+          --arg expected "${EXPECTED:-Not captured}" \
+          --arg actual "${ACTUAL:-Not captured}" \
+          --arg env "$ENV_INFO" \
+          --arg severity "$SEVERITY" \
+          --arg feature "$KEY: $SUMMARY" \
+          '{
+            "fields": {
+              "project": {"key": $proj},
+              "issuetype": {"id": $typeid},
+              "summary": $summary,
+              "labels": ["qa-failure"],
+              "priority": {"name": (if $severity == "P1" then "High" elif $severity == "P2" then "Medium" else "Low" end)},
+              "description": {
+                "type": "doc", "version": 1,
+                "content": [
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Steps to Reproduce"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$steps}]},
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Expected Result"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$expected}]},
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Actual Result"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$actual}]},
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Environment"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$env}]},
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Severity"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$severity}]},
+                  {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Feature Association"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":$feature}]}
+                ]
+              }
+            }
+          }')
+
+        BUG_RESULT=$(jira_post "issue" "$BUG_PAYLOAD")
+        BUG_KEY=$(echo "$BUG_RESULT" | jq -r '.key // ""')
+        [ -n "$BUG_KEY" ] && BUG_KEYS="$BUG_KEYS $BUG_KEY" && echo "QA Agent: Created bug $BUG_KEY [$SEVERITY] — $CHKNAME"
+      fi
+
+      FAILURE_SUMMARY="$FAILURE_SUMMARY
+• [$SEVERITY] $CHKNAME: ${ACTUAL:-Check failed}"
+
+    done <<< "$FAILURES_RAW"
+
+    COMMENT="[QA LEAD] ❌ QA Failed (§8) — $PASS_COUNT/$TOTAL_CHECKS checks passed
 
 $TC_COUNT test cases created.
-Automated checks: $PASSES/$TOTAL_CHECKS passed.
+Bugs filed: ${BUG_KEYS:-none}
 
-Issues found:
-$(echo "$FAILURES" | sed 's/^/• /')
+Failures:
+$FAILURE_SUMMARY
 
-Engineering Constitution requirements not met. Please fix before re-review.
-Refer to CLAUDE.md for component and accessibility standards."
+§8 requirement: all bugs linked above include steps to reproduce, expected/actual results,
+environment, severity, and feature association.
+
+Transitioning to In Development. Resolve all bugs before re-submitting for QA."
     jira_comment "$KEY" "$COMMENT"
-    jira_transition "$KEY" "In Progress"
-    echo "QA Agent: ❌ $KEY failed QA — moved back to In Progress"
-    echo "$FAILURES"
+    jira_transition "$KEY" "In Development"
+    jira_transition "$KEY" "In Progress"  # fallback
+    echo "QA Agent: ❌ $KEY failed — back to In Development. Bugs: $BUG_KEYS"
     exit 2
   fi
 
