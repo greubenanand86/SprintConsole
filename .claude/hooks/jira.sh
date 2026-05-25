@@ -157,11 +157,25 @@ Product Memory System v1.0 (PRODUCT_MEMORY_SYSTEM.md — durable organizational 
 - Quarterly review: identify stale decisions, update roadmap, emerging patterns
 - Final principle: optimize for decision continuity, not documentation volume
 
+Metrics & Operational Dashboard Framework v1.0 (METRICS_DASHBOARD_FRAMEWORK.md — data-driven decisions):
+- 6 dashboard categories: TPM (velocity, predictability, incidents), Engineering (builds, deployments, lead time),
+  Product (adoption, retention, crashes), Operational (incidents, rollbacks, SLA uptime), AI Governance (PRs, overrides, compliance),
+  Custom (institution-specific metrics)
+- Core principle: metrics exist to improve decisions, not create pressure
+- Targets: predictability 80%+, deployments 1-2/week, lead time <7 days, test coverage 70%+,
+  incidents <1 P0/P1/month, QA escape <2%, crash-free 99%+, release failure <3%
+- Review cadence: weekly (sprint health, incidents), monthly (adoption, debt, effectiveness),
+  quarterly (trends, strategy, satisfaction)
+- Anti-patterns: avoid vanity metrics, individual metrics, metrics without context, metrics as punishment
+- Data rules: single source per metric, automated collection, transparent visibility, no retroactive changes
+- Use metrics to: understand capability, identify problems early, measure impact, improve processes
+- Don't use metrics to: punish teams, hide problems, justify prior decisions
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
   + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
-  + Product Memory System v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0
-  + Prompt Engineering Standards v1.0"
+  + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Jira Workflow Governance v1.1
+  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

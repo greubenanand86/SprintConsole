@@ -478,3 +478,74 @@ Local → Development → Staging → Production
 **Governance refs:** Product Memory System v1.0, Engineering Constitution §10 (documentation), Product Constitution §4 (product governance)
 
 ---
+
+## Metrics & Operational Dashboard — 2026-05-25
+
+### ADR-010: Metrics & Operational Dashboard Framework v1.0 Adopted
+
+**Decision:** Metrics & Operational Dashboard Framework v1.0 defines organizational health metrics, release metrics, engineering metrics, product metrics, operational intelligence, and AI governance metrics to enable data-driven decisions. Full document in `METRICS_DASHBOARD_FRAMEWORK.md`.
+
+**Rationale:** As SprintOps Console moves toward multi-client, API-first architecture with AI agent governance, visibility into delivery predictability, quality, efficiency, and user impact is essential. Metrics enable informed decision-making and early problem detection.
+
+**Core Principle:** Metrics exist to improve decisions, not to create artificial pressure.
+
+**6 Dashboard Categories:**
+
+1. **TPM Dashboard:** Sprint predictability, blocked work, release stability, incident frequency, velocity, carryover, release success rate, QA escape rate, time-to-value
+
+2. **Engineering Dashboard:** Build success rate, deployment frequency, lead time, cycle time, technical debt growth, test coverage, PR review time, review cycles, dependency vulnerabilities, TypeScript adoption
+
+3. **Product Dashboard:** Feature adoption, funnel completion, retention, UX friction, crash-free sessions, error rate, performance (P95 response time), analytics completeness, NPS, feature utilization
+
+4. **Operational Dashboard:** Incident frequency, incident duration, rollback frequency, release failure rate, QA escape rate, app store rejection rate, SLA uptime, security incidents, data breaches, on-call escalations
+
+5. **AI Governance Dashboard:** AI-generated PR count, deployment assist rate, governance violations, manual override frequency, agent effectiveness, security sign-off rate, test coverage by AI, escalation rate, decision traceability, comment quality
+
+6. **Metric Definitions:** Formulas and calculations for sprint predictability, deployment frequency, lead time, test coverage, incident frequency, QA escape rate, feature adoption, crash-free sessions
+
+**Targets (Aspirational, Not Punitive):**
+- Sprint predictability: 80%+
+- Build success rate: 95%+
+- Deployment frequency: 1-2/week
+- Lead time: <7 days
+- Test coverage: 70%+
+- Incident frequency: <1 P0/P1 per month
+- QA escape rate: <2%
+- Crash-free sessions: 99%+
+- Release failure rate: <3%
+- Feature adoption: >50% by week 4
+
+**Cadence:**
+- Weekly: Sprint health, build status, critical incidents, blockers
+- Monthly: Feature adoption, retention, technical debt, QA escape rate, agent effectiveness
+- Quarterly: Trend analysis, strategic progress, customer satisfaction
+
+**Anti-Patterns (Avoid):**
+- Vanity metrics (lines of code, commit count)
+- Individual metrics (blame-focused)
+- Metrics without context (targets without improvement roadmap)
+- Metrics as punishment (bonus penalties for missing targets)
+- Static targets (inflexible, ignore context)
+
+**Data Integrity Rules:**
+- Single source of truth per metric (Jira, GitHub, Sentry, etc.)
+- Automated collection (not manual spreadsheets)
+- Written definitions accessible to team
+- No retroactive definition changes mid-quarter
+- Transparent visibility to team (not hidden in executive reports)
+- Monthly audit of metric calculation accuracy
+
+**Tools:**
+- Jira dashboard (sprint, velocity, predictability)
+- GitHub Actions / CI logs (build success, deployment frequency)
+- Sentry / error tracking (crash-free sessions, error rate)
+- Analytics platform (feature adoption, retention, funnel)
+- Grafana + Prometheus (infrastructure, performance)
+
+**Final Principle:** Metrics exist to improve decisions and identify problems, not to punish teams or validate decisions already made. Use metrics to ask "why?" and drive action.
+
+**Impact on current state:** Dashboard framework provides structure for tracking SprintOps Console delivery, quality, and user impact. Enables data-driven decisions on roadmap prioritization, risk assessment, and process improvement.
+
+**Governance refs:** Metrics & Operational Dashboard Framework v1.0, Product Constitution §1 (simplicity), Engineering Constitution §8 (observability), Jira Workflow Governance §16 (stability over speed)
+
+---

@@ -11,6 +11,7 @@ React 18 sprint management tool. No build step — Babel transpiles JSX in-brows
 > **Security Baseline v1.0** (`SECURITY_BASELINE.md`) governs authentication, API security, secrets management, mobile security, dependency governance, logging, auditability, and data protection — security is a product requirement, not a release-phase activity.
 > **Lightweight Legal & Compliance Governance v1.0** (`LEGAL_COMPLIANCE_GOVERNANCE.md`) establishes a Legal & Compliance Agent as a risk-identification layer (not an AI attorney) to flag data privacy, consent, accessibility, student data, credential, third-party SDK, and policy alignment risks early — escalates to human counsel for final decisions.
 > **Product Memory System v1.0** (`PRODUCT_MEMORY_SYSTEM.md`) stores durable organizational intelligence (decisions, rationale, learnings, constraints) to prevent architecture drift, repeated mistakes, and lost context — optimize for decision continuity, not documentation volume.
+> **Metrics & Operational Dashboard Framework v1.0** (`METRICS_DASHBOARD_FRAMEWORK.md`) defines organizational health, delivery, quality, efficiency, and user impact metrics across 6 dashboards (TPM, Engineering, Product, Operational, AI Governance, custom) — metrics exist to improve decisions, not create pressure.
 > Current state is a Babel/JSX prototype. Target state is React+TS (web), React Native+Expo+TS (mobile), API-first backend.
 > Every story should move toward the target. TypeScript migration is the highest-priority debt item.
 
