@@ -76,9 +76,16 @@ Technical Decision Hierarchy (ARCHITECTURE.md §15 — governs stack and structu
 1. Security  2. Stability  3. Maintainability  4. Scalability
 5. Developer productivity  6. Performance optimization  7. Architectural sophistication
 
+API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md — governs all API design):
+- All APIs: clear endpoint naming, consistent request/response, validation, auth, error format, pagination, version awareness
+- Standard error format: { errorCode, message, details }
+- Versioned routes: /api/v1/...
+- Breaking API changes require Architecture review + Release Risk review + migration plan
+- API contracts are shared product infrastructure, not backend implementation details
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
-  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0
-  + Prompt Engineering Standards v1.0"
+  + API Contract Standards v1.0 + Jira Workflow Governance v1.1
+  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

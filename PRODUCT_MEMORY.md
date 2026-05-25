@@ -50,3 +50,24 @@
 **Governance refs:** Architecture Blueprint v1.0, Engineering Constitution v1.0, Product Constitution v1.0
 
 ---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-002: API Contract Standards v1.0 Adopted
+
+**Decision:** API Contract Standards v1.0 is the governing standard for all API design across web, mobile, and backend clients. Full document in `API_CONTRACT_STANDARDS.md`.
+
+**Rationale:** As the product evolves toward an API-first architecture (Architecture Blueprint §5), consistent API contracts prevent frontend/backend/mobile drift and make integrations predictable across all clients.
+
+**Key mandates:**
+- All APIs must include: clear endpoint naming, consistent request/response format, validation rules, auth requirement, error format, pagination where needed, version awareness
+- Standard error format: `{ "errorCode": "...", "message": "...", "details": {} }`
+- Versioned routes: `/api/v1/...`
+- Breaking changes require Architecture review, Release Risk review, and a migration plan
+- API contracts are shared product infrastructure — not backend implementation details
+
+**Impact on current state:** SprintOps Console prototype has no backend API yet. These standards apply from the first backend story onward and must be enforced by the Architect Agent during refinement.
+
+**Governance refs:** API Contract Standards v1.0, Architecture Blueprint v1.0 §5
+
+---
