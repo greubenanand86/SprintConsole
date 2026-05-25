@@ -21,6 +21,13 @@ COUNT=${COUNT:-0}
 
 echo "Deploy Agent: $COUNT stories — running §11 release governance gate"
 
+# ── Read Product Acceptance handoff packet (Agent Interaction Protocols §2) ─
+FIRST_KEY_EARLY=$(echo "$DONE_STORIES" | jq -r '.issues[0].key // ""')
+PRIOR_HANDOFF=""
+[ -n "$FIRST_KEY_EARLY" ] && PRIOR_HANDOFF=$(read_last_handoff "$FIRST_KEY_EARLY")
+PA_HANDOFF_RISKS=$(echo "$PRIOR_HANDOFF" | sed 's/.*Risks: //' | sed 's/ Dependencies:.*//' | head -c 200)
+PA_HANDOFF_OPEN=$(echo "$PRIOR_HANDOFF" | sed 's/.*Open Questions: //' | sed 's/ Expected.*//' | head -c 200)
+
 # ── Release Risk check ─────────────────────────────────────────────────────
 RISK_LEVEL="UNKNOWN"
 FIRST_KEY=$(echo "$DONE_STORIES" | jq -r '.issues[0].key // ""')
@@ -38,6 +45,7 @@ if [ "$RISK_LEVEL" = "RED" ]; then
   echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
     jira_comment "$KEY" "[DEPLOY SPECIALIST] 🚫 Deployment Blocked — RED Release Risk
 Per §11 §9: RED risk blocks deployment. Human escalation required."
+    escalate_to_tpm "$KEY" "RED release risk blocks deployment — §16: Release quality > Delivery speed." "DEPLOY SPECIALIST"
   done
   exit 2
 fi
@@ -51,7 +59,14 @@ if [ -n "$FIRST_KEY" ]; then
   [ -n "$PA_COMMENT" ] && PA_VERIFIED=true
 fi
 PA_GATE="☐ Product Acceptance — NOT FOUND (§11 requires PA before release)"
-$PA_VERIFIED && PA_GATE="☑ Product Acceptance verified (§7 §11)"
+if $PA_VERIFIED; then
+  PA_GATE="☑ Product Acceptance verified (§7 §11)"
+else
+  # Escalate to TPM: no PA = agent disagreement risk
+  [ -n "$FIRST_KEY" ] && escalate_to_tpm "$FIRST_KEY" \
+    "Deploy reached Ready for Release without Product Acceptance sign-off. §4: Stability > Delivery speed." \
+    "DEPLOY SPECIALIST"
+fi
 
 # ── §5: UX review gate ─────────────────────────────────────────────────────
 UX_REVIEWED=false
@@ -225,6 +240,12 @@ $STAGING_NOTE
 $([ -n "$DOD_UNMET" ] && echo "
 ⚠ Definition of Done gaps detected (§6):
 $(echo "$DOD_UNMET" | sed 's/^/  • /')")
+$([ -n "$PA_HANDOFF_RISKS" ] && [ "$PA_HANDOFF_RISKS" != "None" ] && echo "
+⚠ Risks from Product Acceptance handoff:
+  $PA_HANDOFF_RISKS")
+$([ -n "$PA_HANDOFF_OPEN" ] && [ "$PA_HANDOFF_OPEN" != "None" ] && echo "
+Open Questions (from PA handoff):
+  $PA_HANDOFF_OPEN")
 ☐ Human approval — REQUIRED before production (§9)
 
 After human approves:

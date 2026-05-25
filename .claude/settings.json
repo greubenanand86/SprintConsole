@@ -26,8 +26,17 @@
             "async": true,
             "asyncRewake": true,
             "timeout": 180,
-            "statusMessage": "Architect — refining stories (Ready for Refinement → Refined)...",
+            "statusMessage": "Architect — refining stories, writing handoff packets (Ready for Refinement → Refined)...",
             "rewakeSummary": "Architect Agent: stories refined"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/delivery-coordinator-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 60,
+            "statusMessage": "Delivery Coordinator — sprint capacity check, Refined → Ready for Development (§9)...",
+            "rewakeSummary": "Delivery Coordinator: sprint capacity updated"
           },
           {
             "type": "command",
@@ -112,6 +121,15 @@
             "asyncRewake": false,
             "timeout": 120,
             "statusMessage": "Incident Agent — production bug triage, severity, postmortem (§15)..."
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/tpm-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 180,
+            "statusMessage": "TPM Agent — scanning for escalations, conflicts, delivery risk (§3 §4)...",
+            "rewakeSummary": "TPM Agent: escalation resolved — human review may be required"
           },
           {
             "type": "command",

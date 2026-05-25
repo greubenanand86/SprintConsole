@@ -25,6 +25,23 @@ FALLBACK_ID="${SUBTASK_ID:-$TASK_ID}"
 
 echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
 
+  # ── Read architect handoff packet (Agent Interaction Protocols §2) ────────
+  PRIOR_HANDOFF=$(read_last_handoff "$KEY")
+  HANDOFF_TECH=$(echo "$PRIOR_HANDOFF" | sed 's/.*Technical Notes: //' | sed 's/ Risks:.*//' | head -c 300)
+  HANDOFF_RISKS=$(echo "$PRIOR_HANDOFF" | sed 's/.*Risks: //' | sed 's/ Dependencies:.*//' | head -c 200)
+
+  # ── Check for unresolved escalation before proceeding ─────────────────────
+  COMMENTS_PRE=$(jira_get "issue/$KEY/comments?maxResults=50")
+  ESCALATION_UNRESOLVED=$(echo "$COMMENTS_PRE" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+    grep -c '\[ESCALATE → TPM\]' || true)
+  TPM_RESOLVED=$(echo "$COMMENTS_PRE" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+    grep -c '\[TPM AGENT\]' || true)
+
+  if [ "$ESCALATION_UNRESOLVED" -gt 0 ] && [ "$TPM_RESOLVED" -eq 0 ]; then
+    echo "QA Agent: $KEY has unresolved escalation — waiting for TPM resolution, skipping"
+    continue
+  fi
+
   # ── Generate functional test cases ────────────────────────────────────────
   QA_PLAN=$(claude --print \
 "You are a QA Lead writing test cases for SprintOps Console.
@@ -127,6 +144,20 @@ Transitioning to Product Acceptance (§7 lifecycle)."
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "Product Acceptance"
     jira_transition "$KEY" "Done"  # fallback if "Product Acceptance" state not configured
+
+    # Write handoff packet for Product Acceptance Agent (§2)
+    write_handoff "$KEY" \
+      "QA LEAD" \
+      "Product Acceptance" \
+      "$SUMMARY" \
+      "All acceptance criteria validated — $TC_COUNT test cases passed" \
+      "Accessibility §5 verified: semantic HTML, aria-labels, keyboard nav, aria-live" \
+      "${HANDOFF_TECH:-See Architect comment}" \
+      "${HANDOFF_RISKS:-None outstanding after QA}" \
+      "None" \
+      "None" \
+      "Product Acceptance sign-off → Ready for Release"
+
     echo "QA Agent: ✅ $KEY passed — moving to Product Acceptance"
 
   else

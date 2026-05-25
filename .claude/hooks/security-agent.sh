@@ -93,6 +93,14 @@ Engineering Constitution §4: Mandatory security checklist.
 AI agents may not approve security-sensitive changes. Human review is final authority."
 
   jira_comment "$KEY" "$COMMENT"
+
+  # Escalate HIGH/CRITICAL risk to TPM (Agent Interaction Protocols §3 — security/legal escalation)
+  if echo "$RISK" | grep -qiE 'HIGH|CRITICAL'; then
+    escalate_to_tpm "$KEY" \
+      "Security review flagged $RISK risk ($FAIL_COUNT/7 checks failed). §4 conflict resolution: Security beats all other priorities. Human sign-off required before proceeding." \
+      "SECURITY AGENT"
+  fi
+
   echo "Security Agent: $KEY reviewed (Risk: ${RISK:-UNKNOWN}, Failures: $FAIL_COUNT, Sign-off: ${SIGN_OFF:-YES})"
 
 done

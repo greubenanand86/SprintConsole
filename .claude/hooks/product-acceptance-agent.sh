@@ -27,6 +27,25 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
   UX_COMMENT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep '\[UX DESIGNER\]' | head -2)
   SEC_COMMENT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep '\[SECURITY\]' | head -2)
 
+  # ── Read QA handoff packet (Agent Interaction Protocols §2) ──────────────
+  PRIOR_HANDOFF=$(read_last_handoff "$KEY")
+  QA_AC=$(echo "$PRIOR_HANDOFF" | sed 's/.*Acceptance Criteria: //' | sed 's/ UX Notes:.*//' | head -c 300)
+  QA_UX=$(echo "$PRIOR_HANDOFF" | sed 's/.*UX Notes: //' | sed 's/ Technical Notes:.*//' | head -c 200)
+
+  # ── Check for security conflict (§4 resolution order: security > all) ────
+  SEC_HIGH=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+    grep '\[SECURITY\].*HIGH\|HIGH.*Risk' | head -1)
+  if [ -n "$SEC_HIGH" ]; then
+    TPM_RESOLVED=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+      grep -c '\[TPM AGENT\]' || true)
+    if [ "$TPM_RESOLVED" -eq 0 ]; then
+      escalate_to_tpm "$KEY" \
+        "Security HIGH risk not resolved before Product Acceptance. §4: Security beats Product value." \
+        "PRODUCT ACCEPTANCE"
+      continue
+    fi
+  fi
+
   PA_REVIEW=$(claude --print \
 "You are the Product Acceptance Agent for SprintOps Console (Jira Workflow Governance §7).
 
@@ -89,6 +108,20 @@ $([ "$HUMAN_REQUIRED" -gt 0 ] && echo "⚠ Human review recommended — strategi
     jira_comment "$KEY" "$COMMENT"
     jira_transition "$KEY" "Ready for Release"
     jira_transition "$KEY" "Done"  # fallback if "Ready for Release" not configured
+
+    # Write handoff packet for Deploy Specialist (Agent Interaction Protocols §2)
+    write_handoff "$KEY" \
+      "PRODUCT ACCEPTANCE" \
+      "Release Risk → Deploy Specialist → Human Approval" \
+      "$SUMMARY" \
+      "${QA_AC:-All acceptance criteria validated}" \
+      "${QA_UX:-UX expectations met — see UX Agent comment}" \
+      "Release-ready — all DoD criteria satisfied (§6)" \
+      "$([ "$HUMAN_REQUIRED" -gt 0 ] && echo "Human review recommended — strategic/risk/compliance" || echo "None")" \
+      "None" \
+      "$([ "$HUMAN_REQUIRED" -gt 0 ] && echo "Confirm strategic scope with human before release" || echo "None")" \
+      "Deploy package prepared, release notes generated, human approval obtained"
+
     echo "Product Acceptance Agent: ✅ $KEY accepted — transitioning to Ready for Release"
 
   else

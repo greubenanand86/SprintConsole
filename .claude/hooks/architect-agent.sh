@@ -131,6 +131,28 @@ $(echo "$REFINEMENT" | sed -n '/^TEST_SCENARIOS:/,/^SENSITIVE_AREAS:/p' | grep '
   fi
 
   jira_comment "$KEY" "$COMMENT"
+
+  # Transition to "Refined" per §3 lifecycle
+  jira_transition "$KEY" "Refined"
+  jira_transition "$KEY" "Ready for Refinement"  # fallback no-op if already there
+
+  # Write handoff packet for Delivery Coordinator / Dev (Agent Interaction Protocols §2)
+  TECH_SUMMARY=$(echo "$REFINEMENT" | sed -n '/^TECH_NOTES:/,/^ARCHITECTURE_COMPLIANCE:/p' | grep '^-' | head -3 | sed 's/^- //' | tr '\n' '; ')
+  RISK_SUMMARY=$(echo "$REFINEMENT" | sed -n '/^RISK_AWARENESS:/,/^AFFECTED_SYSTEMS:/p' | grep '^-' | head -2 | sed 's/^- //' | tr '\n' '; ')
+  OPEN_Q=$([ "$SENSITIVE" -gt 0 ] && echo "Security Agent review required — touches sensitive areas" || echo "None")
+
+  write_handoff "$KEY" \
+    "ARCHITECT" \
+    "Delivery Coordinator → In Development → Code Review" \
+    "$SUMMARY" \
+    "See story description" \
+    "See [UX DESIGNER] comment" \
+    "${TECH_SUMMARY:-Standard React implementation}" \
+    "${RISK_SUMMARY:-Low}" \
+    "See story description" \
+    "$OPEN_Q" \
+    "Feature implemented per AC; passes QA checks; accessibility verified (§5)"
+
   echo "Architect Agent: Refined $KEY — $SUMMARY"
 
 done

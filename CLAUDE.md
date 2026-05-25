@@ -199,6 +199,65 @@ Production incidents require: severity classification (P0-P3), rollback assessme
 5. Maintainability
 6. Delivery speed
 
+## Agent Interaction Protocols v1.0
+
+### Standard Handoff Flow
+
+```
+PM Agent → Product Governance → UX Agent → Architecture Agent
+→ Delivery Coordinator → Dev → Security Agent → QA Agent
+→ Product Acceptance → Release Risk Agent → TPM Agent → Human Approval
+→ Deploy Specialist → Monitoring Agent
+```
+
+### Handoff Packet Format (§2)
+
+Every stage transition writes a `[HANDOFF PACKET]` Jira comment containing:
+
+| Field | Description |
+|---|---|
+| Objective | What this story achieves |
+| Jira | Key + current status |
+| Acceptance Criteria | What was validated |
+| UX Notes | UX sign-off summary |
+| Technical Notes | Architecture decisions |
+| Risks | Open risk items |
+| Dependencies | Blocking dependencies |
+| Open Questions | Unresolved items |
+| Expected Output | What the next stage must deliver |
+
+### Escalation Rules (§3)
+
+Escalate to TPM Agent when:
+- Agents disagree (conflicting verdicts on same story)
+- Scope changes detected
+- Delivery risk increases (QA failed ≥2 times)
+- QA blocks release
+- Security/legal concerns flagged (HIGH risk)
+- Architecture conflicts arise
+
+Any agent may call `escalate_to_tpm()` from `jira.sh`.
+
+### Conflict Resolution Order (§4)
+
+1. Security / legal
+2. Stability
+3. User experience
+4. Product value
+5. Maintainability
+6. Delivery speed
+
+This order is enforced by the TPM Agent when resolving conflicts.
+
+### Communication Rules (§5)
+
+Agents communicate via structured `[AGENT NAME]` comments in Jira. Every comment must:
+- Use a labelled prefix (`[ARCHITECT]`, `[QA LEAD]`, `[TPM AGENT]`, etc.)
+- State verdicts clearly (✅ / ❌ / ⚠)
+- Identify uncertainty explicitly
+- Provide a recommended action
+- Avoid implementation jargon in user-facing sections
+
 ### AI Agent Permissions (§10)
 
 Agents **may**: create stories, refine AC, add UX/QA notes, link dependencies, update statuses, generate release notes, detect stale tickets, summarize blockers, file §8-compliant bugs.
