@@ -39,6 +39,14 @@
           },
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/security-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 120,
+            "statusMessage": "Security Agent — reviewing sensitive-area stories..."
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/qa-agent.sh",
             "async": true,
             "asyncRewake": true,
@@ -48,12 +56,29 @@
           },
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/release-risk-agent.sh",
+            "async": true,
+            "asyncRewake": true,
+            "timeout": 120,
+            "statusMessage": "Release Risk Agent — assessing deployment risk...",
+            "rewakeSummary": "Release Risk Agent: RED risk — deployment blocked"
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/deploy-agent.sh",
             "async": true,
             "asyncRewake": true,
             "timeout": 120,
-            "statusMessage": "Deploy Specialist — checking readiness & tagging releases...",
+            "statusMessage": "Deploy Specialist — pre-release checks & human approval request...",
             "rewakeSummary": "Deploy Agent: deployment issue found"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"/.claude/hooks/product-memory-agent.sh",
+            "async": true,
+            "asyncRewake": false,
+            "timeout": 60,
+            "statusMessage": "Product Memory — recording significant AI decisions..."
           }
         ]
       }

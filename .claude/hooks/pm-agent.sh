@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Product Manager Agent
 # 1. Reads existing Jira backlog
-# 2. Reads SprintOps design spec
-# 3. Runs gap analysis
-# 4. Creates missing Stories with Acceptance Criteria in Jira
+# 2. Runs gap analysis
+# 3. Creates missing Stories with all governance-required fields (§5)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
@@ -20,11 +19,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DESIGN_CONTEXT=$(cat "$REPO_ROOT/chats/chat1.md" 2>/dev/null | head -100)
 
 # ── Ask Claude to do gap analysis and produce stories ─────────────────────
+# Governance §5: stories must include business purpose, acceptance criteria,
+# UX considerations, edge cases, QA notes, and release impact awareness.
 ANALYSIS=$(claude --print \
-"You are the Product Manager for SprintOps Console.
+"You are the Product Manager for SprintOps Console (governance §5).
 
 EXISTING JIRA ISSUES (already created — do NOT duplicate these):
-$(echo "$EXISTING" | jq -r '.issues[] | \"- [\(.fields.issuetype.name)] \(.key): \(.fields.summary)\"' 2>/dev/null || echo 'None yet')
+$(echo "$EXISTING" | jq -r '.issues[] | "- [\(.fields.issuetype.name)] \(.key): \(.fields.summary)"' 2>/dev/null || echo 'None yet')
 
 DESIGN SPEC CONTEXT:
 The SprintOps Console has 4 pages:
@@ -33,11 +34,20 @@ The SprintOps Console has 4 pages:
 3. Release Readiness — release task cards, product/type/version badges, Generate Scope, Create Post-Deploy, stat cards
 4. Configuration — ADO Connection, Iteration, Field Mapping, Task Rules, Readiness Rules, Estimation Rules, Grouping
 
-TASK: Produce a gap analysis and list of user stories to create. For each story output EXACTLY this format (one per line, pipe-separated):
-STORY|<title>|<as a user I want to...>|<acceptance criteria 1>;<acceptance criteria 2>;<acceptance criteria 3>
+TASK: Gap analysis — produce stories for missing features.
 
-Only output stories that are NOT already in the existing issues list.
-Output 8-12 stories covering the main features. No extra text." \
+Per governance §5, each story MUST include:
+- Business purpose (why this matters to the product/user)
+- Acceptance criteria
+- UX considerations
+- Edge cases
+- QA notes
+- Release impact awareness
+
+For each story output EXACTLY this pipe-separated format (one story per line):
+STORY|<title>|<business purpose>|<as a user I want to...>|<ac 1>;<ac 2>;<ac 3>|<ux consideration>|<edge case>|<qa note>|<release impact>
+
+Only output stories NOT already in the existing issues list. Output 8-12 stories. No extra text." \
   --allowedTools "Read,Glob" \
   --no-conversation 2>/dev/null)
 
@@ -46,7 +56,6 @@ ISSUE_TYPES=$(jira_get "project/$JIRA_PROJECT" | jq '.issueTypes // []')
 STORY_TYPE_ID=$(echo "$ISSUE_TYPES" | jq -r '.[] | select(.name=="Story") | .id' | head -1)
 EPIC_TYPE_ID=$(echo "$ISSUE_TYPES" | jq -r '.[] | select(.name=="Epic") | .id' | head -1)
 
-# Fallback: use generic issue type if Story not found
 if [ -z "$STORY_TYPE_ID" ]; then
   STORY_TYPE_ID=$(echo "$ISSUE_TYPES" | jq -r '.[0].id' | head -1)
 fi
@@ -79,12 +88,10 @@ fi
 CREATED=0
 SKIPPED=0
 
-while IFS='|' read -r TYPE TITLE USER_STORY AC_RAW; do
+while IFS='|' read -r TYPE TITLE BIZ_PURPOSE USER_STORY AC_RAW UX_NOTE EDGE_CASE QA_NOTE RELEASE_IMPACT; do
   [ "$TYPE" != "STORY" ] && continue
   [ -z "$TITLE" ] && continue
 
-  # Skip if title already exists (case-insensitive)
-  TITLE_LOWER=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]')
   if echo "$EXISTING_TITLES" | grep -qi "$(echo "$TITLE" | cut -c1-30)"; then
     echo "PM Agent: Skipping (exists): $TITLE"
     SKIPPED=$((SKIPPED + 1))
@@ -98,15 +105,30 @@ while IFS='|' read -r TYPE TITLE USER_STORY AC_RAW; do
   done | jq -s '.')
 
   DESCRIPTION=$(jq -n \
+    --arg biz "${BIZ_PURPOSE:-Not specified}" \
     --arg story "$USER_STORY" \
     --argjson ac "$AC_CONTENT" \
+    --arg ux "${UX_NOTE:-Not specified}" \
+    --arg edge "${EDGE_CASE:-Not specified}" \
+    --arg qa "${QA_NOTE:-Not specified}" \
+    --arg impact "${RELEASE_IMPACT:-Low}" \
     '{
       "type": "doc", "version": 1,
       "content": [
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Business Purpose"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$biz}]},
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"User Story"}]},
         {"type":"paragraph","content":[{"type":"text","text":$story}]},
         {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Acceptance Criteria"}]},
-        {"type":"bulletList","content":$ac}
+        {"type":"bulletList","content":$ac},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"UX Considerations"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$ux}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Edge Cases"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$edge}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"QA Notes"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$qa}]},
+        {"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Release Impact"}]},
+        {"type":"paragraph","content":[{"type":"text","text":$impact}]}
       ]
     }')
 
@@ -142,6 +164,6 @@ echo "PM Agent complete: $CREATED stories created, $SKIPPED skipped (already exi
 
 if [ "$CREATED" -gt 0 ]; then
   echo "Gap analysis and story creation done — $CREATED new stories added to $JIRA_PROJECT backlog"
-  exit 2  # rewake Claude
+  exit 2
 fi
 exit 0
