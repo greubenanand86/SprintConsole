@@ -180,11 +180,20 @@ Incident Management Playbook v1.0 (INCIDENT_MANAGEMENT_PLAYBOOK.md — incident 
 - Postmortem mandatory: root cause, timeline, impact, detection gap, resolution, prevention steps (system-level learning, not blame)
 - Final principle: incidents are learning opportunities for organizational improvement
 
+Agent Role Specifications v1.0 (AGENT_ROLE_SPECIFICATIONS.md — AI agent governance):
+- 17 agents: TPM, Product Manager, UX/Design, Architect, Delivery Coordinator, Web Frontend, React Native Mobile,
+  Backend/API, QA/Automation, Release/DevOps, Release Risk, Product Memory, Security, Legal/Compliance, Incident, Analytics, FinOps
+- Each agent has: Mission, Responsibilities, Inputs, Outputs, Authority, Escalation rules, Governance constraints, Success metrics
+- Authority rules: AI agents may escalate, reject (within scope), flag risks; may NOT deploy to production, override governance, or bypass QA/security/release
+- Escalation: Architecture violations → Architect → TPM; Security → Security Agent → TPM; Compliance → Legal → TPM; Incidents → Incident Agent → TPM; Release blockers → Any agent → TPM
+- Final decisions: Always humans (TPM, Security, Production approval)
+- Final principle: Governable systems scale better than autonomous chaos
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
   + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
   + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Incident Management Playbook v1.0
-  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Agent Role Specifications v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

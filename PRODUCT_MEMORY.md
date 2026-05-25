@@ -608,3 +608,65 @@ Local → Development → Staging → Production
 **Governance refs:** Incident Management Playbook v1.0, Release Management Playbook v1.0 §9, Environment Governance v1.0 §12, Security Baseline v1.0 §11-12, Jira Workflow Governance v1.1 §15
 
 ---
+
+## AI Agent Organization — 2026-05-25
+
+### ADR-012: Agent Role Specifications v1.0 Adopted
+
+**Decision:** Agent Role Specifications v1.0 defines the mission, responsibilities, inputs, outputs, authority, and governance constraints for 17 AI agents in the product organization. Full document in `AGENT_ROLE_SPECIFICATIONS.md`.
+
+**Rationale:** As SprintOps Console scales from a single-person product to an AI-native organization, clarity on agent roles prevents mission creep, authority confusion, and unchecked autonomous decisions. Each agent has explicit guardrails and escalation rules.
+
+**17 Agent Roles:**
+
+1. **AI Technical Program Manager Agent** — executive coordinator, sprint supervision, cross-agent coordination, delivery governance, escalation management
+2. **Product Manager Agent** — product clarity, backlog quality, prioritization, PRDs, feature definition, Product Acceptance
+3. **UX / Design System Agent** — user flows, wireframes, accessibility, design consistency, UX governance
+4. **Architecture Agent** — API design, integration strategy, scalability review, security patterns, technical governance
+5. **Delivery Coordinator / Scrum Agent** — sprint orchestration, capacity visibility, dependency tracking, blocker escalation
+6. **Web Frontend Agent** — React implementation, responsive UI, accessibility, performance, shared components
+7. **React Native Mobile Agent** — React Native/Expo implementation, mobile components, cross-platform consistency
+8. **Backend / API Agent** — API implementation, authentication, business logic, integrations, DB management, structured logging
+9. **QA & Automation Agent** — test plans, regression validation, E2E testing, release quality, smoke testing
+10. **Release / DevOps Agent** — CI/CD, staging deployments, TestFlight/Play Store, rollbacks, monitoring
+11. **Release Readiness & Risk Agent** — release scoring, crash analysis, rollback validation, deployment risk, release recommendations
+12. **Product Memory Agent** — store durable organizational intelligence (decisions, learnings, constraints)
+13. **Security Agent** — OWASP validation, dependency scanning, auth review, PII handling, compliance
+14. **Legal & Compliance Agent** — risk identification (not legal sign-off), consent flows, accessibility, SDK risk
+15. **Incident Response Agent** — incident summaries, root cause aggregation, rollback recommendations, postmortems
+16. **Analytics Agent** — funnel analysis, feature adoption, UX friction detection, retention analysis
+17. **FinOps Agent** — cloud costs, AI token monitoring, infrastructure optimization
+
+**Authority Constraints:**
+
+- **May escalate:** TPM Agent (blockers, release delays, architecture reviews)
+- **May reject:** Architecture Agent (unsafe design), QA Agent (unstable builds), UX Agent (inaccessible experiences)
+- **May NOT:** AI agents may NOT deploy to production (Release/DevOps Agent limited to staging), override governance, or bypass QA/security/release checks
+- **Final decisions:** Always remain with humans (TPM, Security Agent, human approver)
+
+**Escalation Rules:**
+- Architecture violations → Architect Agent → TPM Agent
+- Security concerns → Security Agent → TPM Agent
+- Compliance/legal concerns → Legal & Compliance Agent → TPM Agent
+- Production incidents → Incident Response Agent → TPM Agent
+- Release blockers → Any agent → TPM Agent
+
+**Standard Agent Template:**
+- Mission (why the agent exists)
+- Responsibilities (what it does)
+- Inputs (what it consumes)
+- Outputs (what it produces)
+- Authority (what it can approve/reject)
+- Escalation Rules (when to escalate to TPM)
+- Governance Constraints (what it may NOT do)
+- Success Metrics (how to measure effectiveness)
+- Communication Style (who it talks to, how)
+- Product Memory Responsibilities (what knowledge to preserve)
+
+**Impact on current state:** SprintOps Console is still a single-person prototype. These role specifications provide the framework for staffing an AI-native organization as the product grows. Enables clear handoff protocols (§2 in Interaction Protocols), authority clarity, and escalation paths.
+
+**Final Principle:** Governable systems scale better than autonomous chaos. Each agent operates within guardrails; humans retain final authority on production, governance, and strategic decisions.
+
+**Governance refs:** Agent Role Specifications v1.0, Agent Interaction Protocols v1.0, Jira Workflow Governance v1.1, Engineering Constitution §9 (AI Agent Boundaries), Product Constitution §9 (AI Agent Boundaries)
+
+---

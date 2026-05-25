@@ -13,6 +13,7 @@ React 18 sprint management tool. No build step — Babel transpiles JSX in-brows
 > **Product Memory System v1.0** (`PRODUCT_MEMORY_SYSTEM.md`) stores durable organizational intelligence (decisions, rationale, learnings, constraints) to prevent architecture drift, repeated mistakes, and lost context — optimize for decision continuity, not documentation volume.
 > **Metrics & Operational Dashboard Framework v1.0** (`METRICS_DASHBOARD_FRAMEWORK.md`) defines organizational health, delivery, quality, efficiency, and user impact metrics across 6 dashboards (TPM, Engineering, Product, Operational, AI Governance, custom) — metrics exist to improve decisions, not create pressure.
 > **Incident Management Playbook v1.0** (`INCIDENT_MANAGEMENT_PLAYBOOK.md`) governs incident handling, escalation flow, rollback procedures, communication expectations, and postmortem governance — incidents are learning opportunities, not blame exercises.
+> **Agent Role Specifications v1.0** (`AGENT_ROLE_SPECIFICATIONS.md`) defines the mission, responsibilities, authority, and governance constraints for 17 AI agents in the product organization — each agent operates within guardrails; humans retain final authority on production, governance, and strategy.
 > Current state is a Babel/JSX prototype. Target state is React+TS (web), React Native+Expo+TS (mobile), API-first backend.
 > Every story should move toward the target. TypeScript migration is the highest-priority debt item.
 
