@@ -405,3 +405,76 @@ Local → Development → Staging → Production
 **Governance refs:** Lightweight Legal & Compliance Governance v1.0, GDPR/CCPA/PIPEDA frameworks, FERPA/PPRA (student data), WCAG 2.1 AA (accessibility), Release Management Playbook §3 §11
 
 ---
+
+## Product Memory System — 2026-05-25
+
+### ADR-009: Product Memory System v1.0 Adopted
+
+**Decision:** Product Memory System v1.0 is the durable knowledge storage system for organizational intelligence, decision rationale, learnings, and constraints. Full document in `PRODUCT_MEMORY_SYSTEM.md`.
+
+**Rationale:** As SprintOps Console evolves across multiple sprints, releases, and potential team changes, decisions, learnings, and constraints must be recorded to prevent organizational forgetting, architecture drift, repeated mistakes, and lost context. Product Memory preserves decision continuity.
+
+**Core Memory Categories (7):**
+1. Product Decisions — why features exist, roadmap rationale, scope boundaries, rejected alternatives
+2. UX Decisions — workflow rationale, navigation, accessibility, mobile-specific behaviors
+3. Architecture Decisions — API strategies, state management, integration rationale, scaling approaches
+4. Technical Debt — known compromises, temporary workarounds, repayment plans
+5. Release Learnings — deployment issues, rollback decisions, recurring bugs, monitoring gaps
+6. Incident Postmortems — production incidents, root cause, prevention actions, P0-P3 severity
+7. Customer Context — institution-specific constraints, contract-sensitive behaviors, integration expectations
+   + Operational Learnings — sprint process improvements, workflow optimizations
+
+**What to Store (Durable Knowledge):**
+- Decisions (what was decided and why)
+- Rationale (context, alternatives considered, tradeoffs)
+- Learnings (what we learned and why it matters)
+- Standards (how we do things)
+- Constraints (what limits us)
+
+**What NOT to Store:**
+- Temporary conversations, random brainstorming, noisy meeting notes
+- Low-confidence assumptions, personal opinions unrelated to decisions
+- Duplicate information (reference Jira for conversation history if needed)
+
+**Decision Record Format (9 fields):**
+- Decision (short, actionable statement)
+- Context (why it matters)
+- Rationale (why this over alternatives)
+- Alternatives Considered (what we rejected and why)
+- Risks (known limitations, scaling concerns)
+- Owner (who owns this going forward)
+- Date (YYYY-MM-DD)
+- Reviewed by (human sign-off if critical)
+- Review cycle (when we revisit this decision)
+
+**Retrieval Rule:**
+- Before proposing major changes, agents check Product Memory for related decisions
+- Agents cite prior decisions when relevant
+- Architecture decisions block contradictory proposals until superseded explicitly
+
+**Memory Maintenance:**
+- Product Memory Agent captures decisions and learnings post-release
+- Append-only: decisions never deleted, superseded ones marked clearly
+- Quarterly review: identify stale decisions, update roadmap, identify emerging patterns
+- Link related decisions for traceability
+
+**Folder Structure (recommended):**
+```
+/product-memory
+  /product-decisions       → feature scopes, roadmap, scope reductions
+  /ux-decisions            → workflow, navigation, accessibility, mobile UX
+  /architecture-decisions  → API, state management, database, scaling
+  /technical-debt         → TypeScript migration, CI/CD, test suite, etc.
+  /release-learnings      → incidents, rollbacks, monitoring gaps, recurring bugs
+  /incident-postmortems   → P0-P3 incidents, root cause, prevention
+  /customer-context       → constraints, contracts, integrations, expectations
+  /governance-history     → ADR adoptions, governance updates
+```
+
+**Final Principle:** Optimize for decision continuity, not documentation volume. Every decision should have clear rationale that future developers understand.
+
+**Impact on current state:** Product Memory System is being populated with ADR-001 through ADR-009 documenting governance adoptions. System provides foundation for future product, UX, architecture, and operational decisions.
+
+**Governance refs:** Product Memory System v1.0, Engineering Constitution §10 (documentation), Product Constitution §4 (product governance)
+
+---

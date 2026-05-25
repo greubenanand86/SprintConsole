@@ -144,10 +144,24 @@ Lightweight Legal & Compliance Governance v1.0 (LEGAL_COMPLIANCE_GOVERNANCE.md â
 - Release blocking: blocks if consent missing, privacy-sensitive unreviewed, accessibility unresolved, SDK risk unknown, legal review pending
 - Escalates to human counsel: legal holds, DPA needs, contract review, policy updates, regulatory questions, breaches, litigation
 
+Product Memory System v1.0 (PRODUCT_MEMORY_SYSTEM.md â€” durable organizational intelligence):
+- Core categories: Product Decisions (features, roadmap, scope), UX Decisions (workflow, accessibility),
+  Architecture Decisions (API, state management, scaling), Technical Debt (compromises, repayment plans),
+  Release Learnings (incidents, rollbacks, monitoring), Incident Postmortems (P0-P3, root cause, prevention),
+  Customer Context (constraints, contracts, integrations), Operational Learnings (process improvements)
+- Store durable knowledge: decisions + rationale, learnings, standards, constraints
+- Do NOT store: temp conversations, brainstorming, low-confidence assumptions
+- Decision format: Decision, Context, Rationale, Alternatives, Risks, Owner, Date, Review cycle
+- Retrieval rule: agents check Product Memory before proposing major changes, cite prior decisions
+- Memory is append-only: decisions superseded (not deleted), learnings prevent recurrence
+- Quarterly review: identify stale decisions, update roadmap, emerging patterns
+- Final principle: optimize for decision continuity, not documentation volume
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
   + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
-  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Product Memory System v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0
+  + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

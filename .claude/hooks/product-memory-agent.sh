@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Product Memory Agent — Product Constitution §7, Engineering Constitution §11, Governance §6
-# Records: architecture decisions, UX rationale, rejected approaches,
-# technical debt, release learnings, recurring usability issues, security/risk events
+# Product Memory Agent — Product Memory System v1.0 | Product Constitution §7 | Engineering Constitution §10 §11
+# Captures durable organizational intelligence: decisions + rationale, learnings, standards, constraints
+# Records: architecture decisions (ADR), UX rationale, technical debt, release learnings,
+# recurring usability issues, security/risk events, governance flags
+# Prevents: organizational forgetting, architecture drift, repeated mistakes, lost context, UX inconsistency
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
