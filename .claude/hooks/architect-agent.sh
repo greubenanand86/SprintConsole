@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Tech Architect + QA Refinement Agent — Engineering Constitution §1, §2, §3, §10
+# Tech Architect + QA Refinement Agent — Engineering Constitution §1 §2 §3 §10 | Security Baseline v1.0
 # Picks up "To Do" stories, adds technical notes, architecture standards compliance,
-# tech stack compliance (§2), component standards (§3), documentation requirements (§10),
-# plus explainability fields per governance §2
+# tech stack compliance (§2), component standards (§3), security design review per Baseline,
+# documentation requirements (§10), plus explainability fields per governance §2
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"

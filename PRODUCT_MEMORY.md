@@ -248,3 +248,88 @@ Local → Development → Staging → Production
 **Governance refs:** Environment Governance v1.0, Release Management Playbook v1.0 §8, Engineering Constitution §7, Product Constitution §5
 
 ---
+
+## Security Governance — 2026-05-25
+
+### ADR-007: Security Baseline v1.0 Adopted
+
+**Decision:** Security Baseline v1.0 is the governing standard for authentication, API security, secrets management, mobile security, dependency governance, logging, auditability, and data protection. Full document in `SECURITY_BASELINE.md`.
+
+**Rationale:** As SprintOps Console evolves toward multi-client (web + mobile) and API-first architecture, consistent security standards prevent credential leaks, unauthorized access, and data exposure. Security must be built in from the start, not added at release time.
+
+**Core security principles (all mandatory):**
+- Least privilege access (request only minimum permissions needed)
+- Secure defaults (deny by default, encrypt sensitive data, no debug modes in production)
+- Auditability (all security-relevant actions logged: who, what, when, where, why)
+- Environment separation (Dev ≠ Staging ≠ Prod; no cross-environment credential sharing)
+- Secret isolation (centralized secret management; no secrets in source code, frontend/mobile, or logs)
+
+**Authentication standards:**
+- Token expiration: access tokens short-lived (15-60 min), refresh tokens longer-lived
+- Refresh handling: one-time use, tokens rotated on refresh
+- RBAC: users have roles, roles grant permissions, checked at API layer
+- Secure storage: HTTP-only cookies (web), Keychain/Keystore (mobile)
+- Sensitive auth changes require Security Agent review + human approval
+
+**API security standards (per API Contract Standards v1.0):**
+- Auth validation: 401 for unauthenticated, 403 for unauthorized
+- Input validation: whitelist expected types, parameterize queries, reject oversized inputs
+- Rate limiting: prevent abuse, different limits for auth'd vs. unauth'd users
+- Structured error handling: standard format, no stack traces or internal details exposed
+- Avoid insecure endpoints: no debug endpoints, no auth bypass, CORS carefully configured
+
+**Secrets management:**
+- NO secrets in source control, frontend/mobile code, or logs (mandatory)
+- Centralized secret store (Vault, AWS Secrets Manager, etc.)
+- Rotation on schedule (quarterly minimum) or immediately if leaked
+- Audit logs for secret access
+
+**Mobile security standards:**
+- Secure token storage: Keychain (iOS), Keystore (Android)
+- HTTPS only, TLS 1.2+, certificate pinning recommended
+- Minimal permissions, graceful degradation if denied
+- Safe deep linking (validate URLs, only public content)
+- Obfuscation and binary hardening in production
+
+**Dependency governance:**
+- Automated scanning on every commit (npm audit, Snyk, etc.)
+- Known vulnerabilities block CI
+- High/Critical: fix immediately (same day)
+- Medium: fix next release (1-2 weeks)
+- Low: regular schedule (quarterly)
+
+**Logging & auditability:**
+- Audit logs: authentication, authorization changes, data access, sensitive operations
+- Release traceability: version, deployment time, who deployed, environment
+- Auth event logging: login success/failure, logout, permission denied, session timeout
+- Deployment visibility: start/end times, version, environment, health checks, rollbacks
+- Log retention per compliance (1-3 years typical); tamper-proof, access-controlled
+
+**Data protection:**
+- Encryption in transit (HTTPS) and at rest (for sensitive data)
+- Minimal exposure (only return needed data, sanitize logs)
+- Retention policy defined, old data deleted/anonymized
+- Access restrictions (only systems/users that need it, audit logs of access)
+
+**Code review security checklist:**
+- No secrets in code, input validation, authorization checks, parameterized queries
+- No unsafe deserialization, dependency scanning, safe error messages
+- Logging of sensitive operations, HTTPS/TLS enforced, encryption for sensitive data
+
+**Mandatory Security Agent review before production deployment:**
+- Auth/authz system changes, data access control changes, new sensitive APIs
+- New external service integrations, database schema changes for sensitive data
+- Secrets/credential rotation, security-critical library updates
+- HIGH/CRITICAL vulnerability fixes
+
+**Security incident response:**
+- Immediate mitigation, assessment, remediation, user notification, postmortem
+- Critical incidents escalate to TPM + Security Agent + human approval
+
+**Final principle:** Security is a product requirement, not a release-phase activity.
+
+**Impact on current state:** SprintOps Console prototype has basic auth scaffolding (window.SPRINTOPS_DATA mock). Baseline applies when backend API, user authentication, and sensitive data handling are implemented.
+
+**Governance refs:** Security Baseline v1.0, Engineering Constitution §4, API Contract Standards v1.0, Environment Governance v1.0, Release Management Playbook §3 §11
+
+---

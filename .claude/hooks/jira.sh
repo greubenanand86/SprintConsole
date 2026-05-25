@@ -118,9 +118,24 @@ Environment Governance v1.0 (ENVIRONMENT_GOVERNANCE.md — governs all environme
 - Monitoring mandatory in Staging + Production: logging (structured/JSON), crash reporting, real-time alerts, analytics validation
 - Post-release monitoring window (Released → Monitoring → Stable → Done) per Release Management Playbook §8
 
+Security Baseline v1.0 (SECURITY_BASELINE.md — governs all security aspects):
+- Core principles: least privilege access, secure defaults, auditability, environment separation, secret isolation
+- Authentication: token expiration (15-60 min access, longer refresh), RBAC, secure storage (HTTP-only cookies web, Keychain/Keystore mobile)
+- API security: auth validation (401/403), input validation (whitelist, parameterized queries), rate limiting, structured errors
+- Secrets: NO secrets in source code, frontend, mobile, or logs; centralized management; rotation on schedule or immediately if leaked
+- Mobile security: Keychain/Keystore token storage, HTTPS/TLS 1.2+, certificate pinning, minimal permissions, safe deep linking
+- Dependency governance: automated scanning (npm audit/Snyk), vulnerabilities block CI, fix immediately (High/Critical same day)
+- Logging/auditability: auth events, authorization changes, sensitive operations, deployment visibility, release traceability
+- Data protection: encryption in transit (HTTPS) and at rest (sensitive data), minimal exposure, retention policies, access restrictions
+- Code review security checklist: no secrets, input validation, auth checks, parameterized queries, dependency scanning, safe errors
+- Security review triggers: auth/authz changes, data access control changes, new sensitive APIs, external integrations, critical vulnerabilities
+- Mandatory Security Agent review before production for auth changes, data control changes, sensitive APIs, integrations, vulnerabilities
+- Final principle: security is built in from start, not added at release time
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
-  + Environment Governance v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Environment Governance v1.0 + Security Baseline v1.0 + Jira Workflow Governance v1.1
+  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

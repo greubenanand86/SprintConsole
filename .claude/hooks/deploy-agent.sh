@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Deployment Specialist Agent — Jira Workflow Governance §11 §12
-# Release Management Playbook v1.0 | Environment Governance v1.0 |
+# Release Management Playbook v1.0 | Environment Governance v1.0 | Security Baseline v1.0 |
 # Engineering Constitution §8 §9 | Product Constitution §5
 #
+# Security Baseline §12: Mandatory Security Agent review before production for:
+#   auth/authz changes, data access control changes, new sensitive APIs, external integrations, vulnerabilities
 # Environment Governance §4: Deployment flow (no skipping):
 #   Local → Development → Staging → Production
 # Environment Governance §5: Production access restricted; sensitive changes need TPM + Security + human approval
@@ -143,6 +145,38 @@ if [ -n "$FIRST_KEY" ]; then
 fi
 QA_GATE="☐ QA sign-off — NOT FOUND (§11 requires QA before release)"
 $QA_VERIFIED && QA_GATE="☑ QA sign-off verified (§8 §11)"
+
+# ── Security Baseline §12: Security sign-off gate ──────────────────────────
+# Mandatory for: auth/authz changes, data access control, new sensitive APIs, integrations, vulnerabilities
+SEC_VERIFIED=false
+SEC_REQUIRED=false
+if [ -n "$FIRST_KEY" ]; then
+  # Check if story touches sensitive areas (auth, data, permissions, payment, integration, vulnerability)
+  SUMMARY=$(echo "$DONE_STORIES" | jq -r '.issues[0].fields.summary // ""')
+  SUMMARY_LOWER=$(echo "$SUMMARY" | tr '[:upper:]' '[:lower:]')
+  if echo "$SUMMARY_LOWER" | grep -qiE 'auth|login|password|token|permission|role|data access|api.*security|payment|integration|vulnerab|secret|encryption|gdpr|pii'; then
+    SEC_REQUIRED=true
+  fi
+
+  if $SEC_REQUIRED; then
+    SEC_COMMENT=$(jira_get "issue/$FIRST_KEY/comments?maxResults=50" | \
+      jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
+      grep '\[SECURITY\].*✅\|✅.*\[SECURITY\]' | head -1)
+    [ -n "$SEC_COMMENT" ] && SEC_VERIFIED=true
+  else
+    # Not security-sensitive, no sign-off needed
+    SEC_VERIFIED=true
+  fi
+fi
+SEC_GATE="☐ Security sign-off — NOT FOUND (Security Baseline §12 requires review for sensitive changes)"
+if $SEC_VERIFIED; then
+  SEC_GATE="☑ Security sign-off verified (Security Baseline §12)"
+elif $SEC_REQUIRED; then
+  # Escalate: security-sensitive but no sign-off
+  [ -n "$FIRST_KEY" ] && escalate_to_tpm "$FIRST_KEY" \
+    "Security-sensitive story reached Ready for Release without Security Agent sign-off. Security Baseline §12: security review required for auth/data/API/integration changes." \
+    "DEPLOY SPECIALIST"
+fi
 
 # ── §6: Definition of Done check ──────────────────────────────────────────
 DOD_CHECK=$(claude --print \
@@ -364,10 +398,11 @@ $(echo "$RELEASE_NOTES" | sed -n '/^KNOWN_LIMITATIONS:/,/^ROLLBACK_NOTE:/p' | gr
 $(echo "$RELEASE_NOTES" | grep '^ROLLBACK_NOTE:' | sed 's/^ROLLBACK_NOTE: /Rollback: /')
 --- END RELEASE NOTES ---
 
-§11 Release Governance Checklist:
+§11 Release Governance Checklist + Security Baseline §12:
 $PA_GATE
 $QA_GATE
 $UX_GATE
+$SEC_GATE
 ☑ Accessibility checked (QA §5 pass required in QA sign-off)
 ☑ Artefact verification ($DEPLOY_OK/7 passed)
 ☑ Rollback available (git revert)

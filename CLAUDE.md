@@ -8,6 +8,7 @@ React 18 sprint management tool. No build step — Babel transpiles JSX in-brows
 > **Repository Governance v1.0** (`REPOSITORY_GOVERNANCE.md`) governs monorepo structure, branching (`main/develop/feature/*/bugfix/*/hotfix/*/release/*`), PR requirements, and merge policy.
 > **Release Management Playbook v1.0** (`RELEASE_MANAGEMENT_PLAYBOOK.md`) governs release types, approval requirements, readiness checklist, mobile coordination, rollback strategy, and monitoring window (Released → Monitoring → Stable → Done).
 > **Environment Governance v1.0** (`ENVIRONMENT_GOVERNANCE.md`) governs environment structure (Local/Development/Staging/Production), deployment flow, configuration isolation, secrets management, test data governance, and monitoring requirements.
+> **Security Baseline v1.0** (`SECURITY_BASELINE.md`) governs authentication, API security, secrets management, mobile security, dependency governance, logging, auditability, and data protection — security is a product requirement, not a release-phase activity.
 > Current state is a Babel/JSX prototype. Target state is React+TS (web), React Native+Expo+TS (mobile), API-first backend.
 > Every story should move toward the target. TypeScript migration is the highest-priority debt item.
 

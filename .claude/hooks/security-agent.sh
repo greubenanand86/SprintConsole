@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Security Agent — Engineering Constitution §4 | Environment Governance v1.0
-# Reviews "In Review" stories for the full §4 security checklist:
-# no secrets in source, environment isolation (§4 + Environment Governance §4-5),
-# least privilege, dependency scanning, auth validation, input validation, secure storage
-# Additional checks: test data governance (no production data in lower environments per §10),
-# secrets management (environment variables only, no sharing across environments per §11)
+# Security Agent — Engineering Constitution §4 | Environment Governance v1.0 | Security Baseline v1.0
+# Reviews "In Review" stories for §4 + Security Baseline comprehensive security checklist
+# Core checklist: no secrets in source, environment isolation, least privilege access,
+# dependency scanning, auth validation, input validation, secure storage
+# Security Baseline §2-8: least privilege, secure defaults, auditability, environment separation,
+# secret isolation, auth standards, API security (rate limiting, error handling), data protection
+# Additional checks: test data governance (no production data in lower environments per Env v1.0 §10),
+# secrets management (environment variables only, no sharing across environments per Env v1.0 §11)
 # Posts security assessment — does NOT approve; flags for mandatory human review
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,33 +36,73 @@ echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='
 "Role: You are the Security Agent for SprintOps Console.
 $AGENT_CONTEXT
 
-Task: Review this story against the §4 mandatory security checklist. Identify risks, failures, and required actions. Flag anything that requires human security sign-off.
+Task: Review this story against the Security Baseline v1.0 and Engineering Constitution §4 security checklist. Identify risks, failures, and required actions. Flag anything that requires human security sign-off.
 
 Inputs:
 - Story: $SUMMARY
 - Source files readable via Read, Glob, and Grep tools
 
-Engineering Constitution §4 mandatory security checklist:
-1. No secrets in source control (API keys, tokens, credentials)
-2. Environment isolation (no prod config in dev, no hardcoded env values)
-3. Least privilege access (request only permissions needed)
-4. Dependency scanning (new packages introduce no known vulnerabilities)
-5. Auth validation (authentication checked before data access)
-6. Input validation (user inputs sanitized and validated)
-7. Secure storage practices (no sensitive data in localStorage/plain cookies)
+Security Baseline v1.0 + Engineering Constitution §4 mandatory security checklist:
+
+Core principles (§2):
+1. Least privilege access: code requests only minimum permissions needed
+2. Secure defaults: deny by default, encrypt sensitive data, no debug modes in production
+3. Auditability: security-relevant actions logged (who, what, when, where)
+4. Environment separation: no cross-environment credential sharing, secrets per environment
+5. Secret isolation: no secrets in source code, frontend/mobile, or logs; centralized management
+
+Authentication (§3):
+6. Token expiration: access tokens short-lived (15-60 min), refresh tokens longer-lived
+7. RBAC implemented: users have roles, permissions checked at API layer
+8. Secure storage: HTTP-only cookies (web), Keychain/Keystore (mobile)
+
+API Security (§4):
+9. Auth validation: 401 for unauthenticated, 403 for unauthorized
+10. Input validation: whitelist expected types, parameterized queries (no SQL injection)
+11. Rate limiting awareness: code uses rate limiting to prevent abuse
+12. Structured error handling: no stack traces or internal details in error responses
+
+Secrets Management (§5):
+13. No secrets in source control, frontend, mobile, or logs
+14. Centralized secret management (Vault, AWS Secrets Manager, etc.)
+15. Secrets never logged or exposed in stack traces
+
+Dependency Governance (§7):
+16. Dependencies scanned for vulnerabilities (npm audit, Snyk, etc.)
+17. Known vulnerabilities block deployment
+18. Outdated packages monitored and updated
+
+Logging & Auditability (§8):
+19. Sensitive operations logged (auth, authorization, data access)
+20. Logs include context (who, what, when, where)
+21. Logs secure (encrypted, access-controlled, tamper-proof)
+
+Data Protection (§9):
+22. Sensitive data encrypted in transit (HTTPS) and at rest (if applicable)
+23. Minimal data exposure (only return needed fields)
+24. Data retention policy followed
+25. Access to sensitive data restricted and audited
 
 Output format — output EXACTLY these sections:
 
 RISK_LEVEL: <LOW|MEDIUM|HIGH>
 
-CHECKLIST:
-- No secrets in source: <PASS|FAIL|N/A — reason>
-- Environment isolation: <PASS|FAIL|N/A — reason>
-- Least privilege: <PASS|FAIL|N/A — reason>
-- Dependency scanning: <PASS|FAIL|N/A — reason>
-- Auth validation: <PASS|FAIL|N/A — reason>
-- Input validation: <PASS|FAIL|N/A — reason>
+BASELINE_CHECKLIST:
+- Least privilege access: <PASS|FAIL|N/A — reason>
+- Secure defaults: <PASS|FAIL|N/A — reason>
+- Auditability: <PASS|FAIL|N/A — reason>
+- Environment separation: <PASS|FAIL|N/A — reason>
+- Secret isolation (no secrets in code/frontend/logs): <PASS|FAIL|N/A — reason>
+- Token expiration & RBAC: <PASS|FAIL|N/A — reason>
 - Secure storage: <PASS|FAIL|N/A — reason>
+- Auth validation (401/403): <PASS|FAIL|N/A — reason>
+- Input validation (parameterized): <PASS|FAIL|N/A — reason>
+- Rate limiting awareness: <PASS|FAIL|N/A — reason>
+- Structured error handling: <PASS|FAIL|N/A — reason>
+- Dependency scanning: <PASS|FAIL|N/A — reason>
+- Sensitive operations logged: <PASS|FAIL|N/A — reason>
+- Encryption (transit & rest): <PASS|FAIL|N/A — reason>
+- Data access restrictions: <PASS|FAIL|N/A — reason>
 
 CONCERNS:
 - <specific concern, or 'None identified'>
@@ -68,7 +110,7 @@ CONCERNS:
 REQUIRED_ACTIONS:
 - <concrete action, or 'None'>
 
-SIGN_OFF_REQUIRED: <YES — human security review needed|NO — low risk, proceed>
+SIGN_OFF_REQUIRED: <YES — human security review needed|NO — all checks passed, low risk>
 
 $AGENT_CONSTRAINTS
 

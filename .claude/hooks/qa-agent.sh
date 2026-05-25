@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# QA Lead Agent — Jira Workflow Governance §8 | Engineering Constitution §5 §6 §13 | Environment Governance §6
+# QA Lead Agent — Jira Workflow Governance §8 | Engineering Constitution §5 §6 §13 |
+# Environment Governance §6 | Security Baseline v1.0
 # Runs on stories in Ready for QA / QA In Progress / In Review (Code Review fallback)
 # Tests: functional test cases + accessibility + staging validation (staging mirrors production per §6)
+#        + security checklist verification per Security Baseline §13
 # Pass → "Product Acceptance" (§7 lifecycle)
 # Fail → "In Development" + creates Bug issue per §8 format
 
