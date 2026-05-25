@@ -30,12 +30,23 @@ Inputs:
 - Story: $SUMMARY
 - Source files readable via Read tool
 
+Architecture Blueprint v1.0 (ARCHITECTURE.md) — governs all structural decisions:
+§3 Web: React + TypeScript mandatory; Next.js + React Query + Zustand preferred; feature-based folders.
+§4 Mobile: React Native + Expo + TypeScript mandatory; shared design system; native code requires Architecture review.
+§5 Backend: API-first, version-aware, centralized auth + validation + logging.
+§15 Technical Decision Hierarchy: Security > Stability > Maintainability > Scalability > Dev productivity > Performance > Sophistication.
+Boring architecture scales better than clever architecture.
+
 Engineering Constitution requirements:
 §1 Simplicity: Prefer simplest solution. Flag over-engineering risk.
-§2 Tech Standards: React patterns; TypeScript mandated but missing — flag as tech debt.
-§3 Architecture: Components must handle loading/error/empty states; no business logic in UI; local state stays local; use CSS design tokens.
+§2 Tech Standards: TypeScript is mandatory — flag any .jsx file as tech debt and recommend TS migration path.
+§3 Architecture: Components handle loading/error/empty states; no business logic in UI; local state stays local; use CSS design tokens.
 §10 Documentation: Major decisions need rationale, alternatives, risks, rollback.
 Governance §2: Rationale, impact summary, risk awareness, affected systems, rollback awareness required.
+
+Flag [ARCHITECTURE DRIFT] if the story's implementation would move away from the target architecture (e.g., adding a new .jsx file instead of .tsx, introducing client-side business logic that should be in a backend service, bypassing the shared design system).
+
+For auth, destructive migrations, or native mobile additions: output [ESCALATE → TPM] — these require Security Agent + Release Risk review per Architecture Blueprint §6 §10.
 
 Output format — output EXACTLY these sections:
 
@@ -79,6 +90,8 @@ TEST_SCENARIOS:
 
 SENSITIVE_AREAS: <YES|NO>
 
+ARCHITECTURE_DRIFT: <YES — describe drift from target architecture|NO>
+
 $AGENT_CONSTRAINTS
 
 $AGENT_ESCALATION_RULES
@@ -88,6 +101,8 @@ $STANDARD_OUTPUT_SUFFIX" \
     --no-conversation 2>/dev/null)
 
   SENSITIVE=$(echo "$REFINEMENT" | grep '^SENSITIVE_AREAS:' | grep -i 'YES' | wc -l | tr -d ' ')
+  DRIFT=$(echo "$REFINEMENT" | grep '^ARCHITECTURE_DRIFT:' | grep -i 'YES' | wc -l | tr -d ' ')
+  DRIFT_NOTE=$(echo "$REFINEMENT" | grep '^ARCHITECTURE_DRIFT:' | sed 's/^ARCHITECTURE_DRIFT: YES — //')
   ADR=$(echo "$REFINEMENT" | sed -n '/^DOCUMENTATION_REQUIRED:/,/^RATIONALE:/p' | grep '^-' | sed 's/^- //' | head -1)
 
   COMMENT="[ARCHITECT] Technical Refinement — §1 §2 §3 §10
@@ -126,6 +141,14 @@ $(echo "$REFINEMENT" | sed -n '/^TEST_SCENARIOS:/,/^SENSITIVE_AREAS:/p' | grep '
     COMMENT="$COMMENT
 
 ⚠ SECURITY FLAG: Touches sensitive areas. Security Agent review mandatory per §4."
+  fi
+
+  if [ "$DRIFT" -gt 0 ]; then
+    COMMENT="$COMMENT
+
+[ARCHITECTURE DRIFT] This story moves away from the target architecture (ARCHITECTURE.md):
+$DRIFT_NOTE
+Recommend aligning with target before merging. Record drift decision in PRODUCT_MEMORY.md."
   fi
 
   if [ -n "$ADR" ] && ! echo "$ADR" | grep -qi "no adr needed"; then

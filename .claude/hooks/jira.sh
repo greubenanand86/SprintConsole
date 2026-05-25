@@ -58,12 +58,27 @@ jira_comment() {
 # ── Prompt Engineering Standards v1.0 ─────────────────────────────────────
 # Shared prompt components sourced by every agent
 
-AGENT_CONTEXT="Context: SprintOps Console — React 18, no-build, Babel standalone JSX.
+AGENT_CONTEXT="Context: SprintOps Console — React 18, no-build, Babel standalone JSX (current prototype state).
 Core files: sprintops-app.jsx, sprintops-shared.jsx, sprintops-layout.jsx,
   sprintops-readiness.jsx, sprintops-estimation.jsx, sprintops-release.jsx,
   sprintops-config.jsx, sprintops-data.js, colors_and_type.css
-Governance: Engineering Constitution + Product Constitution + Jira Workflow Governance v1.1
-  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+
+Target architecture (ARCHITECTURE.md — governs all structural and stack decisions):
+- Web: React + TypeScript + Next.js + React Query + Zustand/Redux Toolkit → /web
+- Mobile: React Native + Expo + TypeScript + shared design system → /mobile
+- Backend: API-first, version-aware, centralized auth + validation + logging → /backend
+- Shared: business logic, design system, validation, analytics → /shared
+- All clients interact through consistent API contracts
+- Feature-based folder organization is mandatory across all clients
+- TypeScript is mandatory everywhere (current .jsx files are highest-priority tech debt)
+
+Technical Decision Hierarchy (ARCHITECTURE.md §15 — governs stack and structural decisions):
+1. Security  2. Stability  3. Maintainability  4. Scalability
+5. Developer productivity  6. Performance optimization  7. Architectural sophistication
+
+Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
+  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0
+  + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

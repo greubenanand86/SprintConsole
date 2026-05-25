@@ -2,6 +2,10 @@
 
 React 18 sprint management tool. No build step — Babel transpiles JSX in-browser. UMD bundles in `vendor/`.
 
+> **Architecture Blueprint v1.0** (`ARCHITECTURE.md`) is the governing technical standard.
+> Current state is a Babel/JSX prototype. Target state is React+TS (web), React Native+Expo+TS (mobile), API-first backend.
+> Every story should move toward the target. TypeScript migration is the highest-priority debt item.
+
 ## Stack
 
 - React 18 (UMD via vendor/react.development.js)
@@ -92,15 +96,17 @@ AI agents may NOT: autonomously redefine product strategy, bypass governance, in
 
 When tradeoffs arise, higher priority wins:
 
-| Priority | Engineering Constitution | Product Constitution |
-|---|---|---|
-| 1 | Security | User trust |
-| 2 | Stability | Accessibility |
-| 3 | User experience | Stability |
-| 4 | Maintainability | Simplicity |
-| 5 | Performance | Maintainability |
-| 6 | Development speed | Speed of delivery |
-| 7 | — | Feature expansion |
+| Priority | Engineering Constitution | Product Constitution | Architecture Blueprint |
+|---|---|---|---|
+| 1 | Security | User trust | Security |
+| 2 | Stability | Accessibility | Stability |
+| 3 | User experience | Stability | Maintainability |
+| 4 | Maintainability | Simplicity | Scalability |
+| 5 | Performance | Maintainability | Developer productivity |
+| 6 | Development speed | Speed of delivery | Performance optimization |
+| 7 | — | Feature expansion | Architectural sophistication |
+
+Architecture Blueprint hierarchy governs all structural and stack decisions. Engineering and Product Constitution hierarchies govern feature delivery and UX decisions.
 
 ## Governance
 
@@ -111,10 +117,13 @@ When tradeoffs arise, higher priority wins:
 
 ## Known Tech Debt
 
-- No TypeScript (Engineering Constitution §2 mandates it — migration is a backlog item)
-- No automated test suite (Engineering Constitution §6 mandates unit + integration tests)
-- No structured logging library (Engineering Constitution §7)
-- No CI pipeline (Engineering Constitution §8)
+- **No TypeScript** — Engineering Constitution §2 + Architecture Blueprint §3 mandate it. Highest-priority debt. Target: migrate to Next.js + TypeScript under `/web`.
+- **No bundler / build step** — Architecture Blueprint §3 requires Next.js. Current Babel in-browser is a temporary affordance.
+- **No mobile client** — Architecture Blueprint §4 mandates React Native + Expo + TypeScript under `/mobile`.
+- **No backend** — Architecture Blueprint §5 mandates API-first backend under `/backend`.
+- **No automated test suite** — Engineering Constitution §6 mandates unit + integration tests.
+- **No structured logging library** — Engineering Constitution §7.
+- **No CI pipeline** — Architecture Blueprint §11 + Engineering Constitution §8.
 
 ## Jira Workflow Governance v1.1
 
