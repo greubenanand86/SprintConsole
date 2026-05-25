@@ -97,9 +97,19 @@ API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md — governs all API desig
 - Breaking API changes require Architecture review + Release Risk review + migration plan
 - API contracts are shared product infrastructure, not backend implementation details
 
+Release Management Playbook v1.0 (RELEASE_MANAGEMENT_PLAYBOOK.md — governs all releases):
+- Core principle: Stability > Speed. All releases must be observable, recoverable, governable.
+- Release workflow: Code Complete → Code Review → QA Validation → Product Acceptance → Release Risk Review → Human Approval → Production Release → Monitoring → Done
+- Release types: Standard Release (TPM+Human), Hotfix (TPM+Human), Mobile Beta (TPM), Production Mobile (Human), Infrastructure (TPM+Security+Human)
+- Release readiness (9 mandatory checks): QA done, Product Acceptance done, Monitoring enabled, Rollback available, Release notes prepared, Crash reporting (mobile), Analytics validated, Security review (if required), Compliance review (if required)
+- Mobile governance (mandatory): TestFlight validation, internal testing validation, metadata review, versioning consistency, crash-free beta validation, staged rollout preferred
+- Rollback governance: All releases need rollback strategy, rollback owner, rollback validation before release
+- Monitoring window: Released → Monitoring → Stable → Done with post-release checks (crashes, API failures, auth issues, performance, analytics)
+- Hotfix governance: Incident classification (P0-P3), rollback awareness, post-release validation, postmortem documentation. hotfix/* requires Release Risk review.
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
-  + API Contract Standards v1.0 + Jira Workflow Governance v1.1
-  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
+  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

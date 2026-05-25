@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Deployment Specialist Agent — Jira Workflow Governance §11 §12
-# Engineering Constitution §8 §9 | Product Constitution §5
+# Release Management Playbook v1.0 | Engineering Constitution §8 §9 | Product Constitution §5
 #
+# Release Management Playbook §3: Cannot release without full readiness checklist:
+#   1. QA completed  2. Product Acceptance completed  3. Monitoring enabled
+#   4. Rollback available  5. Release notes prepared  6. Crash reporting enabled (mobile)
+#   7. Analytics events validated  8. Security review (if required)  9. Compliance review (if required)
 # §11: Feature cannot release unless QA done, Product Acceptance done,
 #      rollback available, monitoring ready, release notes finalized,
 #      Release Risk review completed
@@ -138,6 +142,46 @@ $AGENT_ESCALATION_RULES" \
 
 DOD_UNMET=$(echo "$DOD_CHECK" | grep '^DOD|' | grep '|UNMET|' | sed 's/^DOD|//' | sed 's/|UNMET|/: gap — /')
 DOD_MET=$(echo "$DOD_CHECK" | grep '^DOD|' | grep '|MET|' | wc -l | tr -d ' ')
+
+# ── Release Management Playbook §3: Readiness checklist ────────────────────
+READINESS_CHECK=$(claude --print \
+"Role: You are the Deployment Specialist Agent for SprintOps Console.
+$AGENT_CONTEXT
+
+Task: Verify Release Management Playbook §3 release readiness checklist for these stories: $(echo "$DONE_STORIES" | jq -r '.issues[].fields.summary' | head -5 | tr '\n' '; ')
+
+Inputs: Source files readable via Read and Glob tools.
+
+Release Management Playbook §3: Release Readiness Checklist — all 9 items MANDATORY:
+1. QA completed — QA Lead sign-off present (look for [QA LEAD] ✅)
+2. Product Acceptance completed — PA sign-off present (look for [PRODUCT ACCEPTANCE] ✅)
+3. Monitoring enabled — monitoring plan documented (look for monitoring config or plan)
+4. Rollback available — rollback strategy documented and tested (look for rollback notes in deployment comments)
+5. Release notes prepared — release notes present in deployment comment
+6. Crash reporting enabled (mobile) — if mobile story, crash reporting config present (look for Sentry/Crash config)
+7. Analytics events validated — analytics events validated per Analytics §8 (look for analytics validation in QA comment)
+8. Security review completed (if required) — if security-sensitive, [SECURITY AGENT] sign-off present
+9. Compliance review completed (if required) — if compliance-sensitive, compliance sign-off present
+
+Output format: For each checklist item output exactly one line:
+READINESS|<item>|MET|<note>
+or
+READINESS|<item>|UNMET|<gap description>
+or
+READINESS|<item>|N/A|<reason not applicable>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES" \
+  --allowedTools "Read,Glob" \
+  --no-conversation 2>/dev/null)
+
+READINESS_UNMET=$(echo "$READINESS_CHECK" | grep '^READINESS|' | grep '|UNMET|' | sed 's/^READINESS|//' | sed 's/|UNMET|/: UNMET — /')
+READINESS_MET=$(echo "$READINESS_CHECK" | grep '^READINESS|' | grep '|MET|' | wc -l | tr -d ' ')
+
+if [ -n "$READINESS_UNMET" ]; then
+  echo "Deploy Agent: ⚠ Release readiness gaps detected per Playbook §3"
+fi
 
 # ── §8 staging verification ────────────────────────────────────────────────
 STAGING_OK=false
@@ -288,6 +332,12 @@ $UX_GATE
 ☑ Release Risk: ${RISK_LEVEL:-UNKNOWN}
 ☑ Release notes prepared (above)
 $STAGING_NOTE
+
+Release Management Playbook §3 Readiness ($READINESS_MET/9 passed):
+$(echo "$READINESS_CHECK" | grep '^READINESS|' | sed 's/^READINESS|//' | sed 's/|MET|/: ✅ /' | sed 's/|UNMET|/: ❌ UNMET — /' | sed 's/|N\/A|/: ➖ N\/A — /' | sed 's/^/  /')
+$([ -n "$READINESS_UNMET" ] && echo "
+⚠ Release readiness gaps (Release Management Playbook §3):
+$(echo "$READINESS_UNMET" | sed 's/^/  • /')")
 $([ -n "$DOD_UNMET" ] && echo "
 ⚠ Definition of Done gaps detected (§6):
 $(echo "$DOD_UNMET" | sed 's/^/  • /')")

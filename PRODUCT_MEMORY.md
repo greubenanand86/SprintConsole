@@ -133,3 +133,65 @@
 **Governance refs:** Repository Governance v1.0, Architecture Blueprint v1.0, Jira Workflow Governance v1.1
 
 ---
+
+## Release Management — 2026-05-25
+
+### ADR-005: Release Management Playbook v1.0 Adopted
+
+**Decision:** Release Management Playbook v1.0 is the governing standard for all release workflows, deployment governance, rollback expectations, monitoring procedures, mobile release coordination, and production approval requirements. Full document in `RELEASE_MANAGEMENT_PLAYBOOK.md`.
+
+**Rationale:** As the product moves toward multi-client (web + mobile) and multi-environment (dev, staging, QA, production) deployments, consistent release processes prevent deployment chaos, ensure rollback readiness, and enforce human approval gates before production. The playbook establishes that stability > speed.
+
+**Core principle:** Every release must be observable, recoverable, and governable.
+
+**Release types and approvals:**
+- Standard Release (planned delivery): TPM + Human approval required
+- Hotfix (critical production fix): TPM + Human approval required
+- Mobile Beta (TestFlight/Internal Testing): TPM approval required
+- Production Mobile Release (App Store/Play Store): Human approval required
+- Infrastructure Release (CI/CD/Auth/DB changes): TPM + Security + Human approval required
+
+**Release workflow stages:**
+```
+Code Complete → Code Review → QA Validation → Product Acceptance
+→ Release Risk Review → Human Approval → Production Release → Monitoring → Done
+```
+
+**Release readiness checklist (must pass before production deployment):**
+1. QA completed and signed off
+2. Product Acceptance completed
+3. Monitoring enabled
+4. Rollback available and tested
+5. Release notes prepared
+6. Crash reporting enabled (mobile)
+7. Analytics events validated
+8. Security review completed (if required)
+9. Compliance review completed (if required)
+
+**Mobile release governance (mandatory for mobile releases):**
+- TestFlight validation required
+- Internal testing validation required
+- Store metadata review required
+- Versioning consistency check required
+- Crash-free beta validation required
+- Staged rollout preferred (but not required)
+
+**Rollback governance:**
+- All releases require: rollback strategy, rollback owner, rollback validation
+- Rollback feasibility must be known before release begins
+- Rollback notes documented in release comments
+
+**Monitoring window (Released → Monitoring → Stable → Done):**
+- Post-release monitoring mandatory for crashes, API failures, auth issues, performance degradation, analytics anomalies
+- Stories transition from Released → Monitoring when deployed, then to Stable when monitoring window closes cleanly, then to Done
+
+**Hotfix governance (for urgent production fixes):**
+- Hotfixes require: incident classification (P0-P3), rollback awareness, post-release validation, postmortem documentation
+- Hotfix branches must branch from `main` and require Release Risk review before merging
+- Hotfix escalation to TPM required per Repository Governance hotfix rules
+
+**Impact on current state:** SprintOps Console prototype has no production infrastructure yet (no multiple environments, no mobile builds, no CI/CD pipeline). These standards apply from the first production-bound story onward and govern the Deploy Specialist Agent, Release Risk Agent, Monitoring Agent, and Incident Agent.
+
+**Governance refs:** Release Management Playbook v1.0, Repository Governance v1.0 (hotfix rules), Engineering Constitution §8 §9, Product Constitution §5
+
+---

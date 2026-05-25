@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Monitoring Agent — Jira Workflow Governance §12
-# Released -> Monitoring -> Done lifecycle
-# Checks: crash analysis, incident review, rollback readiness, production validation
-# Transitions to Done when monitoring period is clean
+# Monitoring Agent — Jira Workflow Governance §12 | Release Management Playbook §8
+# Released -> Monitoring -> Stable -> Done lifecycle (Playbook §8)
+# Playbook §8 mandatory checks: crashes, API failures, auth issues, performance degradation, analytics anomalies
+# Transitions: Released → Monitoring (active watch) → Stable (clean pass) → Done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
@@ -41,7 +41,7 @@ echo "$RELEASED" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.stat
 "Role: You are the Monitoring Agent for SprintOps Console.
 $AGENT_CONTEXT
 
-Task: Assess the production health of this released feature and determine if monitoring can be closed.
+Task: Assess the production health of this released feature and determine the monitoring verdict.
 
 Inputs:
 - Released story: $SUMMARY (Status: $STATUS)
@@ -49,20 +49,35 @@ Inputs:
 - Incident flags: ${HAS_INCIDENT:-0}
 - Source files readable via Read and Glob tools
 
-Post-release monitoring checks (§12):
-1. Production stability — are there open production bugs linked to this feature?
-2. Rollback readiness — can this be reverted if issues emerge?
-3. User impact — any signals of user-facing problems?
-4. Performance — any observable degradation?
+Release Management Playbook §8 mandatory post-release monitoring checks:
+1. Crashes — are there crash reports or error boundaries being triggered?
+2. API failures — are API calls failing or returning error rates above baseline?
+3. Auth issues — are there authentication or authorization failures?
+4. Performance degradation — are response times or rendering times significantly worse?
+5. Analytics anomalies — are analytics events missing, doubled, or reporting unexpected values?
+
+Additional checks per §12:
+6. Production stability — are there open production bugs linked to this feature?
+7. Rollback readiness — can this be reverted if issues emerge?
+8. User impact — any signals of user-facing problems?
+
+Monitoring lifecycle (Playbook §8): Released → Monitoring → Stable → Done
+- CLEAR verdict moves story to Stable (then Done once stable window passes)
+- HOLD verdict keeps in Monitoring for another check cycle
+- ESCALATE verdict triggers incident response per §15
 
 Output format — output EXACTLY these sections:
 
+CRASHES: <NONE DETECTED|DETECTED — details>
+API_FAILURES: <NONE DETECTED|DETECTED — details>
+AUTH_ISSUES: <NONE DETECTED|DETECTED — details>
+PERFORMANCE: <ACCEPTABLE|DEGRADED — details>
+ANALYTICS: <NORMAL|ANOMALY — details>
 STABILITY: <STABLE|UNSTABLE — reason>
 ROLLBACK_READY: <YES — how|NO — gap>
 USER_IMPACT: <NONE DETECTED|RISK — reason>
-PERFORMANCE: <ACCEPTABLE|CONCERN — reason>
 
-MONITORING_VERDICT: <CLEAR — safe to close|HOLD — keep monitoring|ESCALATE — incident response needed>
+MONITORING_VERDICT: <CLEAR — safe to mark Stable|HOLD — keep monitoring|ESCALATE — incident response needed>
 NOTES:
 - <observation>
 
@@ -80,22 +95,27 @@ $STANDARD_OUTPUT_SUFFIX" \
 
   case "$VERDICT" in
     CLEAR*)
-      COMMENT="[MONITORING] ✅ CLEAR — Production monitoring passed
+      COMMENT="[MONITORING] ✅ CLEAR — Production monitoring passed (Release Management Playbook §8)
 
+Crashes: $(echo "$MONITOR_CHECK" | grep '^CRASHES:' | sed 's/^CRASHES: //')
+API Failures: $(echo "$MONITOR_CHECK" | grep '^API_FAILURES:' | sed 's/^API_FAILURES: //')
+Auth Issues: $(echo "$MONITOR_CHECK" | grep '^AUTH_ISSUES:' | sed 's/^AUTH_ISSUES: //')
+Performance: $(echo "$MONITOR_CHECK" | grep '^PERFORMANCE:' | sed 's/^PERFORMANCE: //')
+Analytics: $(echo "$MONITOR_CHECK" | grep '^ANALYTICS:' | sed 's/^ANALYTICS: //')
 Stability: $STABILITY
 Rollback: $(echo "$MONITOR_CHECK" | grep '^ROLLBACK_READY:' | sed 's/^ROLLBACK_READY: //')
 User Impact: $(echo "$MONITOR_CHECK" | grep '^USER_IMPACT:' | sed 's/^USER_IMPACT: //')
-Performance: $(echo "$MONITOR_CHECK" | grep '^PERFORMANCE:' | sed 's/^PERFORMANCE: //')
 
 Notes:
 $(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
 
-Monitoring period complete. Transitioning to Done.
+Monitoring period complete. Transitioning: Monitoring → Stable → Done (Playbook §8).
 $(standard_fields_block)"
       jira_comment "$KEY" "$COMMENT"
       jira_transition "$KEY" "Monitoring"
+      jira_transition "$KEY" "Stable"
       jira_transition "$KEY" "Done"
-      echo "Monitoring Agent: ✅ $KEY — CLEAR, moving to Done"
+      echo "Monitoring Agent: ✅ $KEY — CLEAR, moving Monitoring → Stable → Done"
       ;;
 
     HOLD*)
