@@ -107,9 +107,20 @@ Release Management Playbook v1.0 (RELEASE_MANAGEMENT_PLAYBOOK.md — governs all
 - Monitoring window: Released → Monitoring → Stable → Done with post-release checks (crashes, API failures, auth issues, performance, analytics)
 - Hotfix governance: Incident classification (P0-P3), rollback awareness, post-release validation, postmortem documentation. hotfix/* requires Release Risk review.
 
+Environment Governance v1.0 (ENVIRONMENT_GOVERNANCE.md — governs all environments):
+- Mandatory environments: Local (mock data), Development (sanitized test data), Staging (scrubbed prod-like data), Production (real customer data)
+- Deployment flow (no skipping): Local → Development → Staging → Production
+- Separate configs, secrets, and databases per environment; no shared secrets across environments
+- Staging mirrors production configuration, integrations, and monitoring; provides production confidence
+- Production access restricted; sensitive changes require TPM + Security review + human approval
+- Test data governance: never copy production data to lower environments without scrubbing; GDPR/PCI/CCPA compliance required
+- Secrets management: environment variables only (never in code); leaked secrets trigger immediate rotation
+- Monitoring mandatory in Staging + Production: logging (structured/JSON), crash reporting, real-time alerts, analytics validation
+- Post-release monitoring window (Released → Monitoring → Stable → Done) per Release Management Playbook §8
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
-  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Environment Governance v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections

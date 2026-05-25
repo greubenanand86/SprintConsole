@@ -195,3 +195,56 @@ Code Complete → Code Review → QA Validation → Product Acceptance
 **Governance refs:** Release Management Playbook v1.0, Repository Governance v1.0 (hotfix rules), Engineering Constitution §8 §9, Product Constitution §5
 
 ---
+
+## Environment Governance — 2026-05-25
+
+### ADR-006: Environment Governance v1.0 Adopted
+
+**Decision:** Environment Governance v1.0 is the governing standard for all environment structure, deployment flow, configuration isolation, access control, and monitoring. Full document in `ENVIRONMENT_GOVERNANCE.md`.
+
+**Rationale:** As SprintOps Console evolves toward multi-environment (local/dev/staging/prod) deployment, consistent environment structure prevents data leakage, enables predictable rollbacks, and reduces release risk. Staging must mirror production to provide production confidence.
+
+**Mandatory environments:**
+- Local: developer iteration (mock data only)
+- Development: shared integration (sanitized test data)
+- Staging: release validation (scrubbed production-like data)
+- Production: customer-facing (real customer data only)
+
+**Deployment flow (no skipping stages):**
+```
+Local → Development → Staging → Production
+```
+
+**Key mandates:**
+- Separate configs, secrets, and databases per environment
+- No production data in lower environments (unless scrubbed)
+- No shared secrets across environments
+- Staging mirrors production configuration, integrations, monitoring
+- Production access restricted; sensitive changes require TPM + Security review + human approval
+- Mandatory monitoring in Staging + Production (logging, crash reporting, alerts, analytics)
+- Post-release monitoring window per Release Management Playbook §8
+
+**Secrets & Access Control:**
+- All secrets via environment variables (never in code)
+- Leaked secrets trigger immediate rotation
+- Production access audit-logged
+- Rotation on schedule (quarterly minimum)
+
+**Test Data Governance:**
+- Local: mock/synthetic only
+- Development: sanitized test data
+- Staging: scrubbed production-like data (structure intact, PII removed)
+- Production: real customer data only
+- Compliance review required for data migrations (GDPR, PCI-DSS, CCPA)
+
+**Monitoring Requirements:**
+- Structured logging (JSON, context-aware)
+- Crash reporting (Sentry, similar)
+- Real-time alerting (downtime, errors, performance)
+- Post-release window (Released → Monitoring → Stable → Done per Playbook §8)
+
+**Impact on current state:** SprintOps Console prototype runs locally only. Environment Governance applies when development branches and staging instances are created. Standard templates needed for: .env configuration per environment, secrets management, database initialization per environment, monitoring setup.
+
+**Governance refs:** Environment Governance v1.0, Release Management Playbook v1.0 §8, Engineering Constitution §7, Product Constitution §5
+
+---

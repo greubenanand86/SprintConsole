@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Security Agent — Engineering Constitution §4
+# Security Agent — Engineering Constitution §4 | Environment Governance v1.0
 # Reviews "In Review" stories for the full §4 security checklist:
-# no secrets in source, environment isolation, least privilege, dependency scanning,
-# auth validation, input validation, secure storage
+# no secrets in source, environment isolation (§4 + Environment Governance §4-5),
+# least privilege, dependency scanning, auth validation, input validation, secure storage
+# Additional checks: test data governance (no production data in lower environments per §10),
+# secrets management (environment variables only, no sharing across environments per §11)
 # Posts security assessment — does NOT approve; flags for mandatory human review
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

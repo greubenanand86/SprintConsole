@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Monitoring Agent — Jira Workflow Governance §12 | Release Management Playbook §8
+# Monitoring Agent — Jira Workflow Governance §12 | Release Management Playbook §8 | Environment Governance §12
 # Released -> Monitoring -> Stable -> Done lifecycle (Playbook §8)
-# Playbook §8 mandatory checks: crashes, API failures, auth issues, performance degradation, analytics anomalies
+# Environment Governance §12: Mandatory monitoring in Staging + Production
+#   - Structured logging (JSON), crash reporting, real-time alerts, analytics validation
+#   - Post-release window: crashes, API failures, auth issues, performance, analytics
+# Release Management Playbook §8: Crashes, API failures, auth issues, performance degradation, analytics anomalies
 # Transitions: Released → Monitoring (active watch) → Stable (clean pass) → Done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

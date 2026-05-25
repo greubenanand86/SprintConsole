@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Release Risk Agent — Jira Workflow Governance §9 §11 | Release Management Playbook §2 §3 §7
+# Environment Governance v1.0 §4-6 — environment progression and production governance
 # Assesses deployment risk for Done stories: Green / Yellow / Red
 # Green = proceed, Yellow = staged rollout recommended, Red = block
+# Validates: Staging validated before production, production access controls, environment isolation
 # Release type detection: Standard (TPM+Human) | Hotfix (TPM+Human) | Mobile Beta (TPM) |
 #   Production Mobile (Human) | Infrastructure (TPM+Security+Human)
 

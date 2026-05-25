@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Deployment Specialist Agent — Jira Workflow Governance §11 §12
-# Release Management Playbook v1.0 | Engineering Constitution §8 §9 | Product Constitution §5
+# Release Management Playbook v1.0 | Environment Governance v1.0 |
+# Engineering Constitution §8 §9 | Product Constitution §5
 #
+# Environment Governance §4: Deployment flow (no skipping):
+#   Local → Development → Staging → Production
+# Environment Governance §5: Production access restricted; sensitive changes need TPM + Security + human approval
 # Release Management Playbook §3: Cannot release without full readiness checklist:
 #   1. QA completed  2. Product Acceptance completed  3. Monitoring enabled
 #   4. Rollback available  5. Release notes prepared  6. Crash reporting enabled (mobile)
@@ -31,6 +35,43 @@ if echo "$CURRENT_BRANCH" | grep -qE '^hotfix/'; then
   echo "Deploy Agent: ⚠ hotfix/* branch detected — Release Risk review mandatory per Repository Governance v1.0"
   [ -n "$FIRST_KEY_EARLY" ] && escalate_to_tpm "$FIRST_KEY_EARLY" \
     "hotfix/* branch detected ($CURRENT_BRANCH). Repository Governance v1.0: hotfix branches require Release Risk review before merging to main." \
+    "DEPLOY SPECIALIST"
+fi
+
+# ── Environment Governance v1.0: environment isolation check ────────────────
+FIRST_KEY_EARLY=$(echo "$DONE_STORIES" | jq -r '.issues[0].key // ""')
+ENV_CHECK=$(claude --print \
+"Role: You are the Deployment Specialist Agent for SprintOps Console.
+$AGENT_CONTEXT
+
+Task: Verify Environment Governance v1.0 configuration isolation for these stories: $(echo "$DONE_STORIES" | jq -r '.issues[].fields.summary' | head -3 | tr '\n' '; ')
+
+Inputs: Source files readable via Read and Glob tools (look for config files, .env, secrets, environment setup)
+
+Environment Governance v1.0 §4-5: Mandatory environment isolation checks:
+1. Separate configs per environment (.env.local, .env.dev, .env.staging, .env.production)
+2. No hardcoded secrets in source code (check for API keys, passwords, tokens)
+3. No shared secrets or credentials across environments
+4. No production config or secrets in development/staging code
+
+Output format: For each check output exactly one line:
+ENV_CHECK|<check>|OK|<note>
+or
+ENV_CHECK|<check>|FAIL|<reason>
+
+$AGENT_CONSTRAINTS
+
+$AGENT_ESCALATION_RULES" \
+  --allowedTools "Read,Glob" \
+  --no-conversation 2>/dev/null)
+
+ENV_FAILS=$(echo "$ENV_CHECK" | grep '^ENV_CHECK|' | grep '|FAIL|')
+ENV_OK=$(echo "$ENV_CHECK" | grep '^ENV_CHECK|' | grep '|OK|' | wc -l | tr -d ' ')
+
+if [ -n "$ENV_FAILS" ]; then
+  echo "Deploy Agent: ⚠ Environment isolation gaps per Governance v1.0"
+  [ -n "$FIRST_KEY_EARLY" ] && escalate_to_tpm "$FIRST_KEY_EARLY" \
+    "Environment Governance v1.0 §4-5: Configuration isolation gaps detected. No hardcoded secrets, separate configs per environment required." \
     "DEPLOY SPECIALIST"
 fi
 
