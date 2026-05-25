@@ -99,3 +99,37 @@
 **Governance refs:** Shared Package Strategy v1.0, Architecture Blueprint v1.0 §3 §4
 
 ---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-004: Repository Governance v1.0 Adopted
+
+**Decision:** Repository Governance v1.0 is the governing standard for repo structure, branching, PR requirements, and merge policy. Full document in `REPOSITORY_GOVERNANCE.md`.
+
+**Rationale:** As the codebase grows toward a monorepo (web + mobile + backend + shared packages), consistent structure and branch hygiene prevent ownership ambiguity, unsafe merges, and untraceable releases.
+
+**Monorepo structure:**
+- `/apps/web` — React web client
+- `/apps/mobile` — React Native mobile client
+- `/packages/*` — shared packages (ui, api-client, validation, utils, config)
+- `/backend` — API-first backend
+- `/governance` — governance docs (ARCHITECTURE.md, API_CONTRACT_STANDARDS.md, etc.)
+- `/docs` — product and developer documentation
+
+**Branching strategy:**
+- `main` → production-ready only
+- `develop` → integration branch
+- `feature/*` → feature work (branches from develop)
+- `bugfix/*` → bug fixes (branches from develop)
+- `hotfix/*` → urgent production fixes (branches from main; requires Release Risk review)
+- `release/*` → release preparation
+
+**PR requirements (every PR):** Jira ticket, summary, what changed, screenshots/videos if UI, test evidence, risk notes, rollback notes.
+
+**Merge policy:** CI passes + code review completed + QA path identified + no unresolved release blockers.
+
+**Impact on current state:** Current repo has no `/apps` or `/packages` structure. Migration toward the monorepo layout is part of the TypeScript + Next.js migration work.
+
+**Governance refs:** Repository Governance v1.0, Architecture Blueprint v1.0, Jira Workflow Governance v1.1
+
+---

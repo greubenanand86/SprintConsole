@@ -5,6 +5,7 @@ React 18 sprint management tool. No build step — Babel transpiles JSX in-brows
 > **Architecture Blueprint v1.0** (`ARCHITECTURE.md`) is the governing technical standard.
 > **API Contract Standards v1.0** (`API_CONTRACT_STANDARDS.md`) governs all API design — error format, versioning, auth, pagination.
 > **Shared Package Strategy v1.0** (`SHARED_PACKAGE_STRATEGY.md`) governs code sharing across web and mobile — `/packages/ui`, `/api-client`, `/validation`, `/utils`, `/config`, `/analytics`.
+> **Repository Governance v1.0** (`REPOSITORY_GOVERNANCE.md`) governs monorepo structure, branching (`main/develop/feature/*/bugfix/*/hotfix/*/release/*`), PR requirements, and merge policy.
 > Current state is a Babel/JSX prototype. Target state is React+TS (web), React Native+Expo+TS (mobile), API-first backend.
 > Every story should move toward the target. TypeScript migration is the highest-priority debt item.
 

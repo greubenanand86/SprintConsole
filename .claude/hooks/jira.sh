@@ -76,6 +76,13 @@ Technical Decision Hierarchy (ARCHITECTURE.md §15 — governs stack and structu
 1. Security  2. Stability  3. Maintainability  4. Scalability
 5. Developer productivity  6. Performance optimization  7. Architectural sophistication
 
+Repository Governance v1.0 (REPOSITORY_GOVERNANCE.md — governs repo structure, branching, PRs, and merges):
+- Monorepo: /apps/web, /apps/mobile, /packages/*, /backend, /governance, /docs
+- Branches: main (production) | develop (integration) | feature/* | bugfix/* | hotfix/* | release/*
+- Every PR requires: Jira ticket, summary, what changed, screenshots if UI, test evidence, risk notes, rollback notes
+- Merge gates: CI passes + code review + QA path identified + no unresolved release blockers
+- hotfix/* branches from main and requires Release Risk review
+
 Shared Package Strategy v1.0 (SHARED_PACKAGE_STRATEGY.md — governs code sharing across web and mobile):
 - Shared packages: /packages/ui, /packages/api-client, /packages/validation,
   /packages/utils, /packages/config, /packages/analytics

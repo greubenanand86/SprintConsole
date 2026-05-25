@@ -21,6 +21,15 @@ COUNT=${COUNT:-0}
 
 echo "Deploy Agent: $COUNT stories — running §11 release governance gate"
 
+# ── Repository Governance v1.0: branch safety check ──────────────────────
+CURRENT_BRANCH=$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+if echo "$CURRENT_BRANCH" | grep -qE '^hotfix/'; then
+  echo "Deploy Agent: ⚠ hotfix/* branch detected — Release Risk review mandatory per Repository Governance v1.0"
+  [ -n "$FIRST_KEY_EARLY" ] && escalate_to_tpm "$FIRST_KEY_EARLY" \
+    "hotfix/* branch detected ($CURRENT_BRANCH). Repository Governance v1.0: hotfix branches require Release Risk review before merging to main." \
+    "DEPLOY SPECIALIST"
+fi
+
 # ── Read Product Acceptance handoff packet (Agent Interaction Protocols §2) ─
 FIRST_KEY_EARLY=$(echo "$DONE_STORIES" | jq -r '.issues[0].key // ""')
 PRIOR_HANDOFF=""
@@ -109,6 +118,12 @@ Definition of Done (§6) — a story is not complete without ALL of:
 7. Monitoring/logging added (error boundaries, structured logging where applicable)
 8. Release notes prepared (deploy comment with release notes)
 9. Product Acceptance completed ([PRODUCT ACCEPTANCE] ✅ present)
+
+Repository Governance v1.0 PR merge gates (REPOSITORY_GOVERNANCE.md) — also check:
+10. CI passes (look for CI pass evidence or assume passing if no CI configured yet)
+11. Code review completed (look for [ARCHITECT] or [SECURITY] sign-off)
+12. QA path identified (look for test cases or QA plan)
+13. No unresolved release blockers (no open RED risk or unresolved escalations)
 
 Output format: For each DoD item output exactly one line:
 DOD|<item>|MET|<note>

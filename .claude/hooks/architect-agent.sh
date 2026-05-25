@@ -56,6 +56,12 @@ API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md) — enforce on any story
 - Breaking API changes require [ESCALATE → TPM] — Architecture review + Release Risk + migration plan required
 - Flag [API CONTRACT VIOLATION] if a story proposes an API that skips any of the above
 
+Repository Governance v1.0 (REPOSITORY_GOVERNANCE.md) — enforce structure and branching:
+- Target monorepo: /apps/web, /apps/mobile, /packages/*, /backend, /governance, /docs
+- New files should land in the correct directory — not at root or in wrong app
+- hotfix/* branches require Release Risk review before merging to main
+- Flag [REPO STRUCTURE VIOLATION] if a story places files outside the target layout
+
 Flag [ARCHITECTURE DRIFT] if the story's implementation would move away from the target architecture (e.g., adding a new .jsx file instead of .tsx, introducing client-side business logic that should be in a backend service, bypassing the shared design system).
 
 For auth, destructive migrations, or native mobile additions: output [ESCALATE → TPM] — these require Security Agent + Release Risk review per Architecture Blueprint §6 §10.
