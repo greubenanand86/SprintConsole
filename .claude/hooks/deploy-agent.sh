@@ -298,9 +298,10 @@ echo "$DONE_STORIES" | jq -r '.issues[].key' | while read -r KEY; do
   [ -n "$VERSION_ID" ] && jira_put "issue/$KEY" "{\"fields\":{\"fixVersions\":[{\"id\":\"$VERSION_ID\"}]}}" > /dev/null
   jira_transition "$KEY" "Ready for Release"  # best-effort; no-op if state not configured
 
-  jira_comment "$KEY" "[DEPLOY SPECIALIST] 📦 Release Package Ready — Human Approval Required (§9 §11)
+  jira_comment "$KEY" "[DEPLOY SPECIALIST] 📦 Release Package Ready — Human Approval Required (§9 §11 §Playbook)
 
 Fix Version: $VERSION_NAME
+Release Readiness Checklist (Playbook §3): $READINESS_MET/9 items verified
 Artefact checks: $DEPLOY_OK/7 passed
 Release Risk: ${RISK_LEVEL:-UNKNOWN}
 $STAGING_NOTE
