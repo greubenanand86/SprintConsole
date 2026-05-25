@@ -549,3 +549,62 @@ Local → Development → Staging → Production
 **Governance refs:** Metrics & Operational Dashboard Framework v1.0, Product Constitution §1 (simplicity), Engineering Constitution §8 (observability), Jira Workflow Governance §16 (stability over speed)
 
 ---
+
+## Release & Operations Decision — 2026-05-25
+
+### ADR-011: Incident Management Playbook v1.0 Adopted
+
+**Decision:** Incident Management Playbook v1.0 defines incident handling, escalation flow, rollback procedures, communication expectations, and postmortem governance. Full document in `INCIDENT_MANAGEMENT_PLAYBOOK.md`.
+
+**Rationale:** As SprintOps Console moves into production, incident response procedures must be clear, consistent, and learning-oriented. A unified playbook ensures rapid response, appropriate escalation, and organizational learning from incidents rather than blame.
+
+**Key mandates:**
+
+1. **Incident Severity Classification (§2):**
+   - SEV-1: Production outage / major data risk (immediate escalation)
+   - SEV-2: Major feature degradation (urgent escalation)
+   - SEV-3: Partial degradation (standard escalation)
+   - SEV-4: Minor issue (routine investigation)
+
+2. **Incident Workflow (§3):**
+   - Incident Detected → Severity Classification → Containment → Rollback Assessment → Resolution → Monitoring → Postmortem → Product Memory Update
+
+3. **Incident Ownership (§4):**
+   - Incident Response Agent: summaries and coordination
+   - TPM Agent: escalation decisions
+   - DevOps Agent: rollback execution
+   - QA Agent: validation
+   - Security Agent: security assessment
+   - Human: final production decisions
+
+4. **Rollback Rules (§5):**
+   - Rollback preferred when: user trust impacted, crash spikes widespread, auth unstable, or data integrity at risk
+   - DevOps Agent must execute rollback with Security Agent validation
+   - Post-rollback: immediate root cause investigation, fix in parallel track
+
+5. **Postmortem Standards (§6) — Mandatory:**
+   - Root cause analysis (system-level, not blame)
+   - Timeline of detection → response → resolution
+   - Impact assessment (users, data, revenue, trust)
+   - Detection gap analysis (what monitoring/alerts missed it)
+   - Resolution steps taken
+   - Prevention steps (architectural, operational, monitoring)
+   - Recorded in PRODUCT_MEMORY.md for organizational learning
+
+6. **Final Principle (§7):** Incidents are organizational learning opportunities, not blame exercises. Postmortems focus on systemic improvement, not individual performance.
+
+**Integration with existing governance:**
+- Release Management Playbook §9 (hotfix governance) — incidents may trigger hotfix releases per defined approval flow
+- Environment Governance §12 (production monitoring) — incidents detected in production progression (Local → Dev → Staging → Prod)
+- Security Baseline §11-12 (incident security assessment) — Security Agent reviews all SEV-1 and SEV-2 incidents for security implications
+- Jira Workflow Governance §15 (incident agent ownership) — Incident Agent manages status transitions and escalations
+
+**Impact on current state:** SprintOps Console is in prototype phase (no production yet). This playbook provides the governance framework for when incidents occur in production. Must be referenced in:
+- monitoring-agent.sh (release monitoring transitions to incident response)
+- incident-agent.sh (incident status workflow and severity classification)
+- deploy-agent.sh (rollback availability as release gate)
+- security-agent.sh (incident security assessment checklist)
+
+**Governance refs:** Incident Management Playbook v1.0, Release Management Playbook v1.0 §9, Environment Governance v1.0 §12, Security Baseline v1.0 §11-12, Jira Workflow Governance v1.1 §15
+
+---

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Deployment Specialist Agent — Jira Workflow Governance §11 §12
-# Release Management Playbook v1.0 | Environment Governance v1.0 | Security Baseline v1.0 |
+# Release Management Playbook v1.0 | Incident Management Playbook v1.0 | Environment Governance v1.0 | Security Baseline v1.0 |
 # Engineering Constitution §8 §9 | Product Constitution §5
 #
+# Incident Management Playbook §3: Release deployment triggers monitoring workflow (Detected → Classify → ... → Monitor → Postmortem)
+# Incident Playbook §5: Rollback must be available and validated before release
 # Security Baseline §12: Mandatory Security Agent review before production for:
 #   auth/authz changes, data access control changes, new sensitive APIs, external integrations, vulnerabilities
 # Environment Governance §4: Deployment flow (no skipping):

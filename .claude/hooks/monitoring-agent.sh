@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Monitoring Agent — Jira Workflow Governance §12 | Release Management Playbook §8 | Environment Governance §12
-# Released -> Monitoring -> Stable -> Done lifecycle (Playbook §8)
+# Monitoring Agent — Incident Management Playbook v1.0 | Jira Workflow Governance §12 | Release Management Playbook §8 | Environment Governance §12
+# Incident Workflow §3: Incident Detected → Severity Classification → Containment → Rollback Assessment → Resolution → Monitoring → Postmortem
+# Detects production incidents (SEV-1/2/3/4 per Incident Playbook §2) and routes to Incident Agent
+# Released -> Monitoring -> Stable -> Done lifecycle (Playbook §8) with mandatory post-release checks
 # Environment Governance §12: Mandatory monitoring in Staging + Production
 #   - Structured logging (JSON), crash reporting, real-time alerts, analytics validation
 #   - Post-release window: crashes, API failures, auth issues, performance, analytics

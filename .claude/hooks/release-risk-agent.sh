@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Release Risk Agent — Jira Workflow Governance §9 §11 | Release Management Playbook §2 §3 §7
+# Release Risk Agent — Jira Workflow Governance §9 §11 | Release Management Playbook §2 §3 §7 | Incident Management Playbook v1.0
 # Environment Governance v1.0 §4-6 — environment progression and production governance
+# Incident Playbook §5: Rollback preferred when user trust impacted, crashes widespread, auth unstable, data at risk
+# Incident Playbook §4: DevOps Agent owns rollback execution; TPM Agent owns escalation; Human owns final decisions
 # Assesses deployment risk for Done stories: Green / Yellow / Red
 # Green = proceed, Yellow = staged rollout recommended, Red = block
 # Validates: Staging validated before production, production access controls, environment isolation

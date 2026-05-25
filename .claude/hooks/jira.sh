@@ -171,11 +171,20 @@ Metrics & Operational Dashboard Framework v1.0 (METRICS_DASHBOARD_FRAMEWORK.md �
 - Use metrics to: understand capability, identify problems early, measure impact, improve processes
 - Don't use metrics to: punish teams, hide problems, justify prior decisions
 
+Incident Management Playbook v1.0 (INCIDENT_MANAGEMENT_PLAYBOOK.md — incident handling & learning):
+- Severity levels: SEV-1 (production outage/major data risk), SEV-2 (major degradation), SEV-3 (partial), SEV-4 (minor)
+- Incident workflow: Detected → Classify severity → Contain → Assess rollback → Resolve → Monitor → Postmortem → Product Memory
+- Ownership: Incident Response Agent (coordination), TPM Agent (escalation), DevOps Agent (rollback), QA Agent (validation),
+  Security Agent (assessment), Human (final decisions)
+- Rollback rules: Preferred when user trust impacted, crash spikes widespread, auth unstable, or data integrity at risk
+- Postmortem mandatory: root cause, timeline, impact, detection gap, resolution, prevention steps (system-level learning, not blame)
+- Final principle: incidents are learning opportunities for organizational improvement
+
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
   + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
-  + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Jira Workflow Governance v1.1
-  + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Incident Management Playbook v1.0
+  + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections
