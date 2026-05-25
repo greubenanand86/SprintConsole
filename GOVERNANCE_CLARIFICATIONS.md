@@ -15,26 +15,35 @@
 Story in "Ready for Release" status
   ↓
 [Release Risk Agent performs assessment]
-  ├─ Green: "proceed to production"
-  ├─ Yellow: "require staged rollout (e.g., 25% → 50% → 100%)"
-  └─ Red: "block; escalate to TPM"
+  ├─ Green: "ready for production (low risk)"
+  ├─ Yellow: "ready for production with staged rollout (e.g., 25% → 50% → 100%)"
+  └─ Red: "not ready; escalate to TPM"
   ↓
-[TPM Agent reviews Release Risk verdict]
-  ├─ Agrees with Green → forwards to Deploy Agent
-  ├─ Agrees with Yellow → forwards with staged rollout gate to Deploy Agent
-  ├─ Disagrees with Red → escalates to Human; awaits decision
-  └─ Detects blocker (unresolved dependency, governance violation) → escalates to Human
+[TPM Agent reviews Release Risk verdict & recommends action]
+  ├─ Recommends Proceed (Green agrees, no blockers)
+  ├─ Recommends Proceed with Staged Rollout (Yellow agrees, no blockers)
+  ├─ Recommends Delay (Red verdict or unresolved blockers; explains why)
+  └─ Detects governance violation (missing AC, skipped gate) → recommends block + remediation
   ↓
-[Deploy Agent receives approval]
+[Deploy Agent executes checklist & prepares for deployment]
   ├─ Validates pre-release checklist (see below)
-  ├─ Initiates staging deployment
+  ├─ If any item fails → returns story to "Ready for Release" with blocker; awaits fix
+  ├─ If all items pass → initiates staging deployment
   ├─ Waits for Monitoring Agent to validate Staging ↔ Production parity
-  └─ If parity confirmed → transitions story to "Released" → deploys to production
+  └─ If parity confirmed → prepares for production (does not deploy autonomously)
   ↓
-[Human approval (async, optional gate)]
-  ├─ IF Deploy Agent requires explicit human sign-off (e.g., high-risk feature, compliance-sensitive)
-  │   └─ Human reviews story + Release Risk summary + Deploy checklist → approves/blocks
-  └─ IF standard release → human approval assumed (TPM approval sufficient)
+[HUMAN APPROVAL (Mandatory Gate)]
+  ├─ Human reviews story + Release Risk verdict + TPM recommendation + Deploy checklist
+  ├─ Human may:
+  │  ├─ Approve → "Deploy to production" (Deploy Agent proceeds)
+  │  ├─ Block → "Do not deploy" (returns to "Ready for Release"; must fix blocker)
+  │  └─ Delay → "Wait, resubmit later" (removes from release queue)
+  └─ This is the final production gate; cannot be overridden by agents
+  ↓
+[Deploy Agent executes production deployment (if human approved)]
+  ├─ Deploys to production (standard or staged per Release Risk recommendation)
+  ├─ Transitions story to "Released"
+  └─ Notifies Monitoring Agent to begin post-release monitoring
   ↓
 [Monitoring Agent takes ownership]
   ├─ Monitors: crashes, API failures, auth issues, performance, analytics
@@ -43,22 +52,26 @@ Story in "Ready for Release" status
   └─ If clean → transitions to "Stable" → then "Done"
 ```
 
-### Pre-Release Checklist (Deploy Agent Validation)
+### Pre-Release Checklist (Deploy Agent Validation & Gating)
 
 Before production deployment, Deploy Agent **must** verify:
 
-1. ✅ **QA Passed** — QA Agent marked story as tested; no blockers
-2. ✅ **Product Acceptance Complete** — Product Acceptance Agent approved feature
-3. ✅ **Release Risk Review Done** — Release Risk Agent assessed as Green/Yellow/Red
+1. ✅ **QA Passed** — QA Agent validated correctness; no functional blockers
+2. ✅ **Product Acceptance Complete** — Product Manager Agent approved feature meets product requirements
+3. ✅ **Release Risk Review Done** — Release Risk Agent assessed risk as Green/Yellow/Red
 4. ✅ **Rollback Available & Validated** — Rollback procedure documented and dry-run confirmed
-5. ✅ **Release Notes Prepared** — Customer-facing release notes ready
+5. ✅ **Release Notes Prepared** — Customer-facing release notes approved and ready
 6. ✅ **Analytics Events Firing** — Feature analytics instrumented and validated (if applicable)
 7. ✅ **Monitoring Enabled** — Crash reporting, error tracking, performance monitoring active
 8. ✅ **Security Sign-Off** — Security Agent reviewed code/auth/data access (if security-sensitive per Security Baseline §12)
 9. ✅ **Compliance Review** — Legal & Compliance Agent flagged no blocking risks (if applicable)
 10. ✅ **Environment Parity Confirmed** — Staging configuration mirrors Production (validated by Deploy Agent)
 
-**If ANY checklist item fails:** Story transitions back to "Ready for Release" with blocker comment; Deploy Agent awaits fix.
+**If ANY checklist item fails:** Story returns to "Ready for Release" with specific blocker reason; Deploy Agent awaits remediation.
+
+**If ALL checklist items pass:** Deploy Agent prepares for production deployment (does NOT deploy autonomously).
+- Deploy Agent communicates: "Checklist complete. Ready for human approval."
+- Awaits human review and final approval before proceeding to production.
 
 ---
 
@@ -71,32 +84,38 @@ Before production deployment, Deploy Agent **must** verify:
 2. Validate staging deployment (logs, errors, connectivity)
 3. Validate staging ↔ production parity (config, secrets isolation, monitoring)
 4. Execute rollback to previous staging deployment
-5. Coordinate with Monitoring Agent for production readiness
-6. Gate production deployment pending checklist completion (blocking gate)
-7. Create and validate feature flags for staged rollout (if applicable)
-8. Execute staged rollout (25% → 50% → 100%) per Release Risk Agent recommendation
+5. Validate pre-release checklist completeness
+6. Gate progression: prevent deployment unless all checklist items pass
+7. Prepare for production deployment (staging validated, checklist complete, ready for human approval)
+8. Create and validate feature flags for staged rollout (if applicable)
+9. Execute production deployment (only after explicit human approval)
 
 ❌ **NOT Authorized:**
-1. **Deploy directly to production without approval chain** (approval = TPM + checklist validation)
+1. **Deploy to production without explicit human approval** (human approval is mandatory gate)
 2. Deploy to production without Monitoring Agent staging validation
-3. Skip the pre-release checklist
+3. Skip or waive pre-release checklist items
 4. Override Release Risk Agent's Red verdict
 5. Override Security Agent's blocking concerns
 6. Bypass rollback validation (dry-run required)
 7. Deploy without release notes
 8. Make autonomous decisions on staged rollout % or timing (must follow Release Risk Agent recommendation)
+9. Approve or reject stories for production (human approver only)
 
-### Production Deployment Gate
+### Production Deployment Gate (Human-Controlled)
 
 **Explicit gate:** Deploy Agent may deploy to production **only when**:
 1. Story status = "Ready for Release"
-2. Release Risk verdict ≠ Red (or Red resolved + TPM approved override)
-3. Pre-release checklist 100% complete
-4. TPM Agent explicitly confirmed (via comment: `[TPM APPROVAL] Proceed to production`)
+2. Release Risk verdict ≠ Red (or Red resolved with human acknowledgment of risk)
+3. Pre-release checklist 100% complete (all 10 items verified)
+4. TPM Agent has reviewed and **recommends** (not approves) deployment
 5. Monitoring Agent confirmed Staging ↔ Production parity
-6. Human approval obtained (if high-risk or compliance-sensitive; otherwise TPM approval sufficient)
+6. **HUMAN explicitly approves** (mandatory final gate; cannot be skipped or delegated to agents)
 
-**If gate conditions fail:** Deploy Agent transitions story back to "Ready for Release" with blocker reason; awaits resolution.
+**If gate conditions fail:** Deploy Agent returns story to "Ready for Release" with specific blocker reason; awaits remediation before re-submission.
+
+**If all gate conditions pass:** Deploy Agent prepares for production but **does NOT deploy autonomously**. 
+- Communicates: "[DEPLOY READY] Checklist complete, Release Risk assessed, TPM recommends proceed. Awaiting human approval."
+- Waits for explicit human approval before executing production deployment.
 
 ---
 
@@ -106,35 +125,41 @@ Before production deployment, Deploy Agent **must** verify:
 
 ✅ **Authorized Actions:**
 1. Receive escalations from any agent (governance violations, blockers, conflicts)
-2. Review Release Risk verdicts and approve/override with justification
-3. Approve production deployment (via explicit `[TPM APPROVAL]` comment)
-4. Escalate to human when TPM cannot resolve (e.g., conflicting agent verdicts, strategic questions)
+2. Review Release Risk verdicts and **recommend** production deployment (Green/Yellow) or **recommend** delay (Red)
+3. Coordinate cross-agent resolution (e.g., if Architect and Security disagree, TPM arbitrates per Decision Hierarchy)
+4. Recommend escalation to human when TPM cannot resolve (conflicting verdicts, strategic questions, unacceptable risk)
 5. Recommend release delay (if blocker unresolvable by target date)
-6. Coordinate cross-agent resolution (e.g., if Architect and Security disagree, TPM arbitrates per Decision Hierarchy)
-7. Request architecture, security, or compliance review
-8. Track metrics (velocity, predictability, incident frequency) and report to human
-9. Manage sprint rhythm and sprint goals
-10. Identify and escalate governance violations (agent overreach, skipped gates)
+6. Request architecture, security, or compliance review
+7. Track metrics (velocity, predictability, incident frequency) and report to human
+8. Manage sprint rhythm and sprint goals
+9. Identify and escalate governance violations (agent overreach, skipped gates)
+10. Provide context to human approver ("Release Risk recommends Green; I recommend proceed" vs. "Red verdict; risk is X")
 
 ❌ **NOT Authorized:**
-1. **Override governance rules** (e.g., "deploy anyway despite QA blockers")
-2. Override Security Agent's blocking concerns without human approval
-3. Override Architecture Agent's rejection of unsafe design without human approval
-4. Deploy to production directly (only Deploy Agent may deploy; TPM approves)
-5. Make final product decisions (roadmap, scope, deprecations — Product Manager decides)
-6. Make final technical decisions (architecture, API design — Architect decides)
-7. Skip required agents' reviews (e.g., "ship without Security review")
+1. **Approve or deny production deployment** (human approver makes final decision)
+2. Override governance rules (e.g., "deploy anyway despite QA blockers")
+3. Override Security Agent's blocking concerns without escalating to human
+4. Override Architecture Agent's rejection of unsafe design without escalating to human
+5. Deploy to production directly (only Deploy Agent may deploy if human approved)
+6. Make final product decisions (roadmap, scope, deprecations — Product Manager decides)
+7. Make final technical decisions (architecture, API design — Architect decides)
+8. Skip required agents' reviews (e.g., "ship without Security review")
+9. Waive pre-release checklist items
 
-### TPM Decision Hierarchy
+### TPM Decision Hierarchy & Conflict Arbitration
 
 When agents conflict, TPM arbitrates using Decision Hierarchy (Architecture Blueprint §15):
 
 1. **Security** > Stability > Maintainability > Scalability > Developer productivity > Performance > Sophistication
 
-**Example conflicts & TPM resolution:**
-- Architect wants feature A, Security says "A is unsafe" → **Security wins** (TPM blocks feature A)
-- QA says "not ready," Product says "ship it" → **QA wins** (TPM blocks release)
-- Release Risk says Yellow (staged), Deploy says "deploy 100%" → **Release Risk wins** (TPM enforces staged rollout)
+**TPM arbitration examples:**
+- Architect wants feature A, Security says "A is unsafe" → **TPM recommends Security wins** (escalates to human if override requested)
+- QA says "not ready," Product says "ship it" → **TPM recommends QA wins** (escalates to human if PM insists)
+- Release Risk says Yellow (staged), Deploy says "deploy 100%" → **TPM recommends Release Risk wins** (enforces staged rollout recommendation)
+
+**Key principle:** TPM arbitrates conflicts per hierarchy but does NOT make final overrides. If TPM's arbitration is disagreed with, TPM escalates to human with context:
+- "Hierarchy says Security > Architect, so I recommend Design A is rejected. If you (human) want to override this, acknowledge the risk."
+- Human makes final decision (override or not); TPM executes per human decision.
 
 ---
 
@@ -339,12 +364,61 @@ If any mobile-specific gate fails: Release Risk verdict = **Red (block)** pendin
 
 ---
 
-## VII. Governance Reference
+## VII. Product Acceptance Ownership
+
+### QA Agent vs. Product Manager Agent
+
+**Clear separation of concerns:**
+
+**QA Agent validates:**
+- ✅ Correctness: Does code implement AC exactly as written?
+- ✅ Edge cases: Are all specified error conditions handled?
+- ✅ Regression: Do existing features still work?
+- ✅ Performance: Does feature meet performance requirements?
+- ✅ Accessibility: Does feature meet WCAG 2.1 AA?
+
+QA verdict: Feature works correctly **according to AC** (binary: pass/fail)
+
+**Product Manager Agent approves:**
+- ✅ Product value: Does feature deliver promised value?
+- ✅ UX acceptability: Is the experience usable and delightful?
+- ✅ Scope alignment: Does feature match original intent (or should scope be adjusted)?
+- ✅ Release readiness: Are release notes, monitoring, analytics in place?
+- ✅ Customer impact: How will customers perceive this feature?
+
+PM verdict: Feature meets **product requirements and acceptance criteria** (approve/reject)
+
+### Workflow Integration
+
+```
+[In Development]
+  ↓
+[Code Review] — Architect + Security review
+  ↓
+[QA Phase] — QA Agent validates correctness
+  ├─ QA Pass: "Feature works per AC"
+  └─ QA Fail: "Feature doesn't implement AC; return to dev"
+  ↓
+[Product Acceptance] — Product Manager Agent reviews & approves
+  ├─ PM Approve: "Feature meets product requirements; ready for release"
+  ├─ PM Reject: "AC met but product doesn't match intent; return to dev for scope adjustment"
+  └─ PM Block: "Feature value no longer justified; cancel or defer"
+  ↓
+[Ready for Release] — Only if QA PASS + PM APPROVE
+```
+
+**Critical:** QA Pass + PM Reject = Return to In Development (PM may request design change, scope adjustment, or additional validation).
+
+Only **both** QA Pass AND PM Approve allows progression to "Ready for Release".
+
+---
+
+## IX. Governance Reference
 
 All clarifications above derive from:
 - **Release Management Playbook v1.0** (§3 readiness, §7 rollback, §8 monitoring, §9 hotfix)
 - **Environment Governance v1.0** (§4–6 deployment flow, parity, access control)
-- **Agent Role Specifications v1.0** (§1 TPM, §10–11 Deploy, §13 Security)
+- **Agent Role Specifications v1.0** (§1 TPM, §2 PM, §10–11 Deploy, §13 Security)
 - **Incident Management Playbook v1.0** (§3 workflow, §4 ownership, §5 rollback, §6 postmortem)
 - **Product Memory System v1.0** (§3 memory rules, §6 retrieval rule)
 - **Architecture Blueprint v1.0** (§15 decision hierarchy)
@@ -352,7 +426,7 @@ All clarifications above derive from:
 
 ---
 
-## VIII. Final Principle
+## X. Final Principle
 
 **Approvals should be fast, clear, and traceable.**
 
@@ -362,7 +436,7 @@ All clarifications above derive from:
 
 ---
 
-## IX. Remaining Ambiguities Needing Human Decision
+## XI. Remaining Ambiguities Needing Human Decision
 
 **These require human input before agent formalization; cannot be resolved by governance alone:**
 

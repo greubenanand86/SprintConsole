@@ -23,25 +23,40 @@ SprintOps Console has adopted 12 governance standards (ADR-001 through ADR-012) 
 
 | Agent | Role | Status | Prompt | Deployment |
 |-------|------|--------|--------|-----------|
-| **TPM Agent** | Escalation, risk translation, sprint coordination | ✅ READY | TIER_1_AGENT_PROMPTS.md §1 | Week 1–2 |
-| **Product Manager Agent** | Feature definition, acceptance, prioritization | ✅ READY | TIER_1_AGENT_PROMPTS.md §2 | Week 1–2 |
+| **TPM Agent** | Escalation, risk translation, **recommendation** (not approval) | ✅ READY | TIER_1_AGENT_PROMPTS.md §1 | Week 1–2 |
+| **Product Manager Agent** | Feature definition, **acceptance ownership** (QA validates correctness, PM validates value) | ✅ READY | TIER_1_AGENT_PROMPTS.md §2 | Week 1–2 |
 | **UX Agent** | Workflows, accessibility, design consistency | ✅ READY | TIER_1_AGENT_PROMPTS.md §3 | Week 1–2 |
 | **Architecture Agent** | API design, security design, scalability | ✅ READY | TIER_1_AGENT_PROMPTS.md §4 | Week 1–2 |
 
-### Deployment Process
+### Deployment Model: Advisory-First (Initially)
+
+**Important distinction:** Agents *recommend* transitions and actions; humans review and approve before workflow moves.
 
 Each Tier 1 agent is deployed as:
 1. Standalone jira.sh hook (runs on story state transition)
 2. Claude API call with agent context + specific prompt
-3. Comment output to Jira with verdict and rationale
+3. Comment output to Jira with **recommendation** (not autonomous action)
+4. Human reviews recommendation and transitions story manually (initially)
 
-**Deployment steps:**
-1. Create agent script (e.g., tpm-agent.sh, pm-agent.sh, ux-agent.sh, architect-agent.sh)
-2. Source jira.sh (for shared AGENT_CONTEXT, functions)
-3. Define trigger conditions (e.g., TPM Agent runs when escalation tag detected)
-4. Implement decision flow per prompt
-5. Output comment with standard format (verdict, rationale, next steps)
-6. Test with 2–3 stories before declaring "live"
+**Example flow (Advisory-First):**
+```
+UX Agent writes comment: "[UX DESIGNER] ✅ UX specified. Wireframes and accessibility approved. Ready for Architect review."
+→ Human reads comment, verifies, manually transitions story to "Ready for Refinement"
+
+Architect Agent writes comment: "[ARCHITECT] ✅ Architecture approved. Ready for development."
+→ Human reads comment, verifies, manually transitions story to "Ready for Development"
+
+TPM Agent writes comment: "[TPM RECOMMENDS PROCEED] Release Risk Green; checklist complete. Awaiting human approval."
+→ Human reads comment, verifies checklist, reviews Release Risk verdict, makes production approval decision
+```
+
+**Future evolution (Automation, Phase 2+):** Once patterns stabilize, certain recommendations may be auto-executed (e.g., UX approval → auto-transition to "Ready for Refinement"), but always with audit trail and human override capability.
+
+**Why advisory-first initially:**
+- Agents are new; recommendations need human validation before automation
+- Builds confidence in agent accuracy before autonomous transitions
+- Easy to adjust agent logic without unraveling autonomous workflows
+- Human retains explicit control over all state transitions during Phase 1–2
 
 ### Authority & Guardrails
 
@@ -93,14 +108,18 @@ Each Tier 1 agent is deployed as:
 
 ### Tier 2 Agents (Execution & Release Critical Path)
 
-| Agent | Role | Status | Observation Rules | Formalization |
-|-------|------|--------|-------------------|--|
-| **Security Agent** | Code security review, design safety | OBSERVE | TIER_2_OBSERVATION_RULES.md §I | Week 10+ |
-| **QA Agent** | Testing, regression, usability | OBSERVE | TIER_2_OBSERVATION_RULES.md §II | Week 10+ |
-| **Deploy Agent** | Staging deployment, checklist gating | OBSERVE | TIER_2_OBSERVATION_RULES.md §III | Week 10+ |
-| **Release Risk Agent** | Risk assessment, rollout strategy | OBSERVE | TIER_2_OBSERVATION_RULES.md §IV | Week 10+ |
-| **Monitoring Agent** | Post-release monitoring, health check | OBSERVE | TIER_2_OBSERVATION_RULES.md §V | Week 10+ |
-| **Incident Agent** | Incident classification, postmortem | OBSERVE | TIER_2_OBSERVATION_RULES.md §VI | Week 10+ |
+**Goal:** Operational clarity, not maximum agent count. We'll observe which roles naturally emerge, then formalize only the necessary agents. Consolidation is expected.
+
+| Agent Role | Status | Observation Rules | Formalization Decision |
+|-----------|--------|-------------------|----------------------|
+| **Security Review** (Code + Design-time) | OBSERVE | TIER_2_OBSERVATION_RULES.md §I | Consolidate or split? Observe first. |
+| **QA & Testing** (Correctness validation) | OBSERVE | TIER_2_OBSERVATION_RULES.md §II | Consolidate with other QA functions? |
+| **Release Gating** (Checklist validation) | OBSERVE | TIER_2_OBSERVATION_RULES.md §III | Part of Deployment, or separate agent? |
+| **Risk Assessment** (Release readiness) | OBSERVE | TIER_2_OBSERVATION_RULES.md §IV | Consolidate with Release Gating? |
+| **Post-Release Monitoring** (Health check) | OBSERVE | TIER_2_OBSERVATION_RULES.md §V | Standalone or part of Release? |
+| **Incident Response** (Classification, postmortem) | OBSERVE | TIER_2_OBSERVATION_RULES.md §VI | Consolidate with Monitoring? |
+
+**Key principle:** Do NOT formalize agents until Phase 2 observation reveals natural role boundaries. Consolidate roles that naturally work together; split roles that create conflicts. The goal is clarity and efficiency, not a predetermined agent count.
 
 ### Observation Framework
 
@@ -163,41 +182,55 @@ This evidence drives formalization of Tier 2 prompts without speculation.
 
 ---
 
-## Phase 3: Tier 2 Formalization & Tier 3 Deployment (Week 10+)
+## Phase 3: Tier 2 Formalization & Flexible Agent Definition (Week 10+)
 
-### Tier 3 Agents (Specialized Support)
+### Phase 2 Observation Output: Consolidated Agent Roles
 
-| Agent | Role | Needs |
-|-------|------|-------|
-| **Web Frontend Agent** | React implementation | Explicit workflow (when to start? when to stop?) |
-| **React Native Mobile Agent** | React Native + Expo implementation | Integrated mobile workflow, TestFlight gates |
-| **Backend / API Agent** | API implementation, business logic | Explicit API contract validation |
-| **Analytics Agent** | Feature adoption, usage metrics | Pre-release analytics validation gate |
-| **Legal & Compliance Agent** | Risk identification (not legal sign-off) | Explicit scope + escalation rules |
-| **Delivery Coordinator** | Dependency tracking, blocker escalation | Explicit dependency pre-flight check |
-| **FinOps Agent** | Cost tracking, optimization | Cost estimation thresholds, cost budget |
+Based on Phase 2 observation, we expect consolidation. Example patterns:
+
+- **Security + Code Review Agent** (design-time + code-time security validation; single agent)
+- **QA + Testing Agent** (correctness validation, regression, accessibility)
+- **Release Readiness Agent** (checklist gating + risk assessment + rollout coordination)
+- **Monitoring + Incident Response Agent** (post-release health → incident classification → postmortem)
+
+**NOT predetermined** — Phase 2 will reveal which consolidations work; we formalize based on evidence.
+
+### Tier 3 Support Functions (As Needed)
+
+Only formalize Tier 3 agents if Phase 2 observation reveals:
+- Clear customer need (e.g., "we keep manually checking mobile TestFlight status; automate this")
+- Natural role boundary (e.g., "Analytics always validates pre-release; make it an agent")
+- Operational efficiency (e.g., "Manually estimating costs; automate with FinOps checks")
+
+**Do NOT create:**
+- **Web Frontend Agent** as separate agent (unless Phase 2 reveals it's needed)
+- **React Native Mobile Agent** unless mobile-specific testing becomes major bottleneck
+- **Backend / API Agent** unless API contract validation keeps causing delays
+- **Delivery Coordinator** if TPM + agents handle dependencies well
+- **FinOps Agent** if costs stay unconstrained
+
+The goal is **operational clarity**, not agent proliferation.
 
 ### Phase 3 Deliverables (Week 10+)
 
-1. **Tier 2 formalized prompts** (based on Phase 2 evidence)
-   - Security Agent prompt (with timing, authority rules)
-   - QA Agent prompt (with coverage thresholds)
-   - Deploy Agent prompt (with checklist discipline, approval flow)
-   - Release Risk Agent prompt (with quantitative criteria for Green/Yellow/Red)
-   - Monitoring Agent prompt (with detection rules, monitoring window logic)
-   - Incident Agent prompt (with severity quantitative thresholds)
+1. **Tier 2 formalized prompts** (based on Phase 2 consolidation evidence)
+   - Consolidated Security Agent (design + code review)
+   - QA + Testing Agent
+   - Release Readiness Agent (checklist + risk + rollout)
+   - Monitoring + Incident Agent
+   - +/- Specialized agents based on observation
 
-2. **Tier 3 agent definitions** (high-level prompts)
-   - Web Frontend Agent workflow
-   - React Native Mobile Agent workflow (integrated with main release)
-   - Backend / API Agent workflow
-   - Analytics Agent workflow
-   - etc.
+2. **Consolidation rationale document**
+   - Why we consolidated X agents
+   - Why we kept Y agents separate
+   - How consolidated agents coordinate
+   - Decision criteria for future role splits
 
 3. **Agent coordination framework** (how agents work together)
    - Escalation paths (when does each agent escalate?)
    - Conflict resolution (who wins if agents disagree?)
    - Integration points (when does each agent step in?)
+   - Advisory-first communication model for all agents
 
 ---
 
@@ -270,11 +303,18 @@ This evidence drives formalization of Tier 2 prompts without speculation.
 
 ## Timeline & Next Steps
 
-### Week 1–2: Deploy Tier 1 Agents
+### Week 1–2: Deploy Tier 1 Agents (Advisory-First Model)
 - Create tpm-agent.sh, pm-agent.sh, ux-agent.sh, architect-agent.sh
-- Deploy to Jira hooks (test with 2–3 stories)
-- Verify agent comments, verdicts, coordination
-- Resolve any blockers in Tier 1 execution
+- Deploy to Jira hooks as **advisory agents** (write recommendations in comments)
+- Manual workflow transitions (human reads agent recommendation, manually transitions story)
+- Test with 2–3 stories to verify agent logic and accuracy
+- Build confidence in agent recommendations before automation
+
+**Approval process:**
+- TPM Agent recommends → Human makes production approval decision
+- Architect Agent recommends → Human manually transitions to next state
+- PM Agent approves acceptance → Human manually transitions to next state
+- UX Agent approves design → Human manually transitions to next state
 
 **Decision required:** 3 blocking ambiguities (human approver, high-risk definition, incident severity)
 
@@ -302,25 +342,29 @@ This evidence drives formalization of Tier 2 prompts without speculation.
 
 ## Success Criteria
 
-### Phase 1 Success (Weeks 1–4)
-- ✅ Tier 1 agents (TPM, PM, UX, Architect) deployed and active
+### Phase 1 Success (Weeks 1–4) — Advisory-First Model
+- ✅ Tier 1 agents (TPM, PM, UX, Architect) deployed and **recommending** (not automating)
 - ✅ 3 production releases completed with Tier 1 agent governance
+- ✅ Human approves all state transitions (advisory-first flow working)
 - ✅ No governance violations in releases
-- ✅ Tier 1 agents' verdicts align with outcomes (high accuracy)
+- ✅ Tier 1 agent recommendations align with human decisions (high accuracy)
 - ✅ Blocking ambiguities resolved (human approver, high-risk definition, severity thresholds)
 
-### Phase 2 Success (Weeks 5–10)
+### Phase 2 Success (Weeks 5–10) — Observe & Consolidate
 - ✅ Tier 2 observation data collected (per TIER_2_OBSERVATION_RULES.md)
 - ✅ 2–3 production releases with observed Tier 2 workflows
-- ✅ Natural patterns identified (when each agent needed, how they coordinate)
+- ✅ Natural role boundaries identified (which functions belong together?)
 - ✅ Decision thresholds quantified (Green/Yellow/Red criteria)
+- ✅ Consolidation patterns documented (e.g., "Security + Code Review should be one agent")
 - ✅ High-priority ambiguities resolved (staged rollout, monitoring window, etc.)
 
-### Phase 3 Success (Week 10+)
-- ✅ Tier 2 agent prompts formalized and deployed
-- ✅ Tier 3 agent workflows defined
-- ✅ Full 17-agent ecosystem operational
+### Phase 3 Success (Week 10+) — Formalize Consolidated Agents
+- ✅ Tier 2 agent prompts formalized based on Phase 2 consolidation evidence
+- ✅ Consolidated agent workflows operational (e.g., Security Agent handles design + code review)
 - ✅ Governance standards fully executed by agents
+- ✅ **Flexible agent count** (not 17 agents; only as many as operational clarity requires)
+- ✅ Advisory-first workflow continues for new/complex decisions
+- ✅ Automation introduced only after patterns stabilize
 - ✅ Release cycle time <7 days (code complete → production)
 - ✅ Incident response time <1 hour (detection → resolution)
 
