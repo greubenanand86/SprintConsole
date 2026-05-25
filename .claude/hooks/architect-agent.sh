@@ -44,6 +44,11 @@ Engineering Constitution requirements:
 §10 Documentation: Major decisions need rationale, alternatives, risks, rollback.
 Governance §2: Rationale, impact summary, risk awareness, affected systems, rollback awareness required.
 
+Shared Package Strategy v1.0 (SHARED_PACKAGE_STRATEGY.md) — enforce on any story that touches logic used by more than one client:
+- Cross-client validation, API clients, utilities, analytics, and UI primitives belong in /packages
+- Shared packages must not contain platform-specific logic or production config
+- Flag [SHARED PACKAGE VIOLATION] if a story duplicates code that should live in /packages
+
 API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md) — enforce on any story touching an API:
 - Endpoint must have clear naming, consistent request/response shape, validation, auth declaration, error format
 - Error responses must use: { errorCode, message, details }
@@ -101,6 +106,8 @@ ARCHITECTURE_DRIFT: <YES — describe drift from target architecture|NO>
 
 API_CONTRACT_COMPLIANCE: <N/A — no API surface|PASS — meets all standards|VIOLATION — describe gap>
 
+SHARED_PACKAGE_COMPLIANCE: <N/A — no cross-client code|PASS — correctly uses /packages|VIOLATION — describe duplication>
+
 $AGENT_CONSTRAINTS
 
 $AGENT_ESCALATION_RULES
@@ -114,6 +121,8 @@ $STANDARD_OUTPUT_SUFFIX" \
   DRIFT_NOTE=$(echo "$REFINEMENT" | grep '^ARCHITECTURE_DRIFT:' | sed 's/^ARCHITECTURE_DRIFT: YES — //')
   API_VIOLATION=$(echo "$REFINEMENT" | grep '^API_CONTRACT_COMPLIANCE:' | grep -i 'VIOLATION' | wc -l | tr -d ' ')
   API_NOTE=$(echo "$REFINEMENT" | grep '^API_CONTRACT_COMPLIANCE:' | sed 's/^API_CONTRACT_COMPLIANCE: VIOLATION — //')
+  PKG_VIOLATION=$(echo "$REFINEMENT" | grep '^SHARED_PACKAGE_COMPLIANCE:' | grep -i 'VIOLATION' | wc -l | tr -d ' ')
+  PKG_NOTE=$(echo "$REFINEMENT" | grep '^SHARED_PACKAGE_COMPLIANCE:' | sed 's/^SHARED_PACKAGE_COMPLIANCE: VIOLATION — //')
   ADR=$(echo "$REFINEMENT" | sed -n '/^DOCUMENTATION_REQUIRED:/,/^RATIONALE:/p' | grep '^-' | sed 's/^- //' | head -1)
 
   COMMENT="[ARCHITECT] Technical Refinement — §1 §2 §3 §10
@@ -160,6 +169,14 @@ $(echo "$REFINEMENT" | sed -n '/^TEST_SCENARIOS:/,/^SENSITIVE_AREAS:/p' | grep '
 [ARCHITECTURE DRIFT] This story moves away from the target architecture (ARCHITECTURE.md):
 $DRIFT_NOTE
 Recommend aligning with target before merging. Record drift decision in PRODUCT_MEMORY.md."
+  fi
+
+  if [ "$PKG_VIOLATION" -gt 0 ]; then
+    COMMENT="$COMMENT
+
+[SHARED PACKAGE VIOLATION] Story duplicates logic that should live in /packages (Shared Package Strategy v1.0):
+$PKG_NOTE
+Move to the appropriate shared package: /packages/ui, /api-client, /validation, /utils, /config, or /analytics."
   fi
 
   if [ "$API_VIOLATION" -gt 0 ]; then

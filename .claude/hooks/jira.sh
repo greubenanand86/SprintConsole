@@ -76,6 +76,13 @@ Technical Decision Hierarchy (ARCHITECTURE.md §15 — governs stack and structu
 1. Security  2. Stability  3. Maintainability  4. Scalability
 5. Developer productivity  6. Performance optimization  7. Architectural sophistication
 
+Shared Package Strategy v1.0 (SHARED_PACKAGE_STRATEGY.md — governs code sharing across web and mobile):
+- Shared packages: /packages/ui, /packages/api-client, /packages/validation,
+  /packages/utils, /packages/config, /packages/analytics
+- Shared packages must NOT contain: platform-specific logic, business logic duplication, production config
+- Any cross-client duplication (validation, API calls, utils, analytics) belongs in /packages
+- Flag [SHARED PACKAGE VIOLATION] if a story duplicates logic that should be shared
+
 API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md — governs all API design):
 - All APIs: clear endpoint naming, consistent request/response, validation, auth, error format, pagination, version awareness
 - Standard error format: { errorCode, message, details }

@@ -71,3 +71,31 @@
 **Governance refs:** API Contract Standards v1.0, Architecture Blueprint v1.0 §5
 
 ---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-003: Shared Package Strategy v1.0 Adopted
+
+**Decision:** Shared Package Strategy v1.0 governs how code is shared across web and mobile clients. Full document in `SHARED_PACKAGE_STRATEGY.md`.
+
+**Rationale:** Without a shared package strategy, React web and React Native mobile will independently re-implement validation, API clients, analytics, and utility logic — creating drift that becomes expensive to fix.
+
+**Package layout:**
+- `/packages/ui` — reusable UI primitives (platform-aware)
+- `/packages/api-client` — API clients (fetch wrappers, error handling, versioning)
+- `/packages/validation` — shared validation schemas (used by both clients and backend)
+- `/packages/utils` — common utilities
+- `/packages/config` — shared configuration (no production secrets)
+- `/packages/analytics` — analytics event helpers and consistent event naming
+
+**Rules:**
+- Shared packages must not contain platform-specific logic
+- No business logic duplication across clients — extract to shared
+- No direct production config in shared code
+- Principle: reduce duplication without hiding platform-specific realities
+
+**Impact on current state:** No `/packages` directory exists yet. These standards apply when the first shared package is introduced and must be enforced by the Architect Agent during refinement.
+
+**Governance refs:** Shared Package Strategy v1.0, Architecture Blueprint v1.0 §3 §4
+
+---
