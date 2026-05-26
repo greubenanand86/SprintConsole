@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "default": "sprintconsole",
+  "products": [
+    {
+      "id": "sprintconsole",
+      "name": "SprintConsole",
+      "jira_project": "SC",
+      "config": "products/sprintconsole/config.env",
+      "status": "active"
+    }
+  ]
+}

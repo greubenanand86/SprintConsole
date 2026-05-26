@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$SCRIPT_DIR/jira.sh" ] && source "$SCRIPT_DIR/jira.sh"
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MEMORY_FILE="$REPO_ROOT/PRODUCT_MEMORY.md"
+MEMORY_FILE="${PRODUCT_MEMORY_FILE:-$REPO_ROOT/products/sprintconsole/PRODUCT_MEMORY.md}"
 TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
 KEY="${1:-}"
@@ -284,7 +284,7 @@ if [ -f "$MEMORY_FILE" ] && { [ "$SEV" = "SEV-1" ] || [ "$SEV" = "SEV-2" ]; }; t
     printf "\n---\n"
   } >> "$MEMORY_FILE"
 
-  git -C "$REPO_ROOT" add PRODUCT_MEMORY.md 2>/dev/null || true
+  git -C "$REPO_ROOT" add "$MEMORY_FILE" 2>/dev/null || true
   git -C "$REPO_ROOT" diff --cached --quiet 2>/dev/null || \
     git -C "$REPO_ROOT" commit -m "chore: record $SEV incident in Product Memory [§9 §15]" 2>/dev/null || true
 fi

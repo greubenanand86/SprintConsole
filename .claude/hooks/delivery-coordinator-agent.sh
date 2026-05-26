@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-MAX_IN_FLIGHT=6  # recommended WIP limit per sprint
+MAX_IN_FLIGHT="${PRODUCT_WIP_LIMIT:-6}"  # per-product WIP limit (products/<id>/config.env)
 
 # Fetch all relevant sprint states
 IN_DEV=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+status+in+(%22In+Development%22,%22In+Progress%22)+AND+issuetype=Story&maxResults=20&fields=summary,labels,priority,updated" 2>/dev/null || echo '{"issues":[],"total":0}')

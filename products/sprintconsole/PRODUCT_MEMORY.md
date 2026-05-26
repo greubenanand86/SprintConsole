@@ -1,0 +1,672 @@
+# Product Memory
+## SprintOps Console — Decisions, Learnings, and Governance Records
+
+---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-001: Architecture Blueprint v1.0 Adopted
+
+**Decision:** Architecture Blueprint v1.0 is the governing technical standard for all SprintOps Console development, present and future. Full document in `ARCHITECTURE.md`.
+
+**Rationale:** The product is evolving beyond a single no-build Babel prototype toward a multi-client (web + mobile), API-first system. The blueprint establishes consistent, boring-but-scalable defaults so the team doesn't relitigate stack choices story by story.
+
+**Key mandates:**
+- Web: React + TypeScript + Next.js (preferred) + React Query + Zustand/Redux Toolkit
+- Mobile: React Native + Expo + TypeScript + shared design system
+- Backend: API-first, version-aware, centralized auth, validation layer, structured logging
+- All clients interact through consistent API contracts — no client-side business logic that leaks platform concerns
+- TypeScript is mandatory everywhere (currently a known debt item on web — migration required)
+- Feature-based folder organization across all clients
+
+**Technical Decision Hierarchy (ARCHITECTURE.md §15):**
+1. Security
+2. Stability
+3. Maintainability
+4. Scalability
+5. Developer productivity
+6. Performance optimization
+7. Architectural sophistication
+
+**Current state vs target state:**
+- Current: single-page Babel/JSX no-build prototype (`index.html` + `*.jsx` files)
+- Target: `/web` (Next.js/TS), `/mobile` (Expo/TS), `/backend` (API-first), `/shared` (business logic + design system)
+
+**Migration path:** No big-bang rewrite. Each new story should move toward the target structure. TypeScript migration is the highest-priority debt item per Engineering Constitution §2 + Architecture Blueprint §3.
+
+**Constraints:**
+- Babel in-browser transpilation is a temporary affordance — it must be replaced as part of the Next.js migration
+- Native code in mobile requires Architecture review and Release Risk awareness
+- Destructive DB migrations require Architecture review, rollback strategy, and human approval
+
+**Known limitations of current architecture:**
+- No TypeScript (debt — Engineering Constitution §2)
+- No automated test suite (debt — Engineering Constitution §6)
+- No CI pipeline (debt — Engineering Constitution §8)
+- No structured logging (debt — Engineering Constitution §7)
+- No bundler / build step (debt — Architecture Blueprint §3)
+
+**Recorded by:** Architect Agent / Human  
+**Governance refs:** Architecture Blueprint v1.0, Engineering Constitution v1.0, Product Constitution v1.0
+
+---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-002: API Contract Standards v1.0 Adopted
+
+**Decision:** API Contract Standards v1.0 is the governing standard for all API design across web, mobile, and backend clients. Full document in `API_CONTRACT_STANDARDS.md`.
+
+**Rationale:** As the product evolves toward an API-first architecture (Architecture Blueprint §5), consistent API contracts prevent frontend/backend/mobile drift and make integrations predictable across all clients.
+
+**Key mandates:**
+- All APIs must include: clear endpoint naming, consistent request/response format, validation rules, auth requirement, error format, pagination where needed, version awareness
+- Standard error format: `{ "errorCode": "...", "message": "...", "details": {} }`
+- Versioned routes: `/api/v1/...`
+- Breaking changes require Architecture review, Release Risk review, and a migration plan
+- API contracts are shared product infrastructure — not backend implementation details
+
+**Impact on current state:** SprintOps Console prototype has no backend API yet. These standards apply from the first backend story onward and must be enforced by the Architect Agent during refinement.
+
+**Governance refs:** API Contract Standards v1.0, Architecture Blueprint v1.0 §5
+
+---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-003: Shared Package Strategy v1.0 Adopted
+
+**Decision:** Shared Package Strategy v1.0 governs how code is shared across web and mobile clients. Full document in `SHARED_PACKAGE_STRATEGY.md`.
+
+**Rationale:** Without a shared package strategy, React web and React Native mobile will independently re-implement validation, API clients, analytics, and utility logic — creating drift that becomes expensive to fix.
+
+**Package layout:**
+- `/packages/ui` — reusable UI primitives (platform-aware)
+- `/packages/api-client` — API clients (fetch wrappers, error handling, versioning)
+- `/packages/validation` — shared validation schemas (used by both clients and backend)
+- `/packages/utils` — common utilities
+- `/packages/config` — shared configuration (no production secrets)
+- `/packages/analytics` — analytics event helpers and consistent event naming
+
+**Rules:**
+- Shared packages must not contain platform-specific logic
+- No business logic duplication across clients — extract to shared
+- No direct production config in shared code
+- Principle: reduce duplication without hiding platform-specific realities
+
+**Impact on current state:** No `/packages` directory exists yet. These standards apply when the first shared package is introduced and must be enforced by the Architect Agent during refinement.
+
+**Governance refs:** Shared Package Strategy v1.0, Architecture Blueprint v1.0 §3 §4
+
+---
+
+## Architecture Decision — 2026-05-25
+
+### ADR-004: Repository Governance v1.0 Adopted
+
+**Decision:** Repository Governance v1.0 is the governing standard for repo structure, branching, PR requirements, and merge policy. Full document in `REPOSITORY_GOVERNANCE.md`.
+
+**Rationale:** As the codebase grows toward a monorepo (web + mobile + backend + shared packages), consistent structure and branch hygiene prevent ownership ambiguity, unsafe merges, and untraceable releases.
+
+**Monorepo structure:**
+- `/apps/web` — React web client
+- `/apps/mobile` — React Native mobile client
+- `/packages/*` — shared packages (ui, api-client, validation, utils, config)
+- `/backend` — API-first backend
+- `/governance` — governance docs (ARCHITECTURE.md, API_CONTRACT_STANDARDS.md, etc.)
+- `/docs` — product and developer documentation
+
+**Branching strategy:**
+- `main` → production-ready only
+- `develop` → integration branch
+- `feature/*` → feature work (branches from develop)
+- `bugfix/*` → bug fixes (branches from develop)
+- `hotfix/*` → urgent production fixes (branches from main; requires Release Risk review)
+- `release/*` → release preparation
+
+**PR requirements (every PR):** Jira ticket, summary, what changed, screenshots/videos if UI, test evidence, risk notes, rollback notes.
+
+**Merge policy:** CI passes + code review completed + QA path identified + no unresolved release blockers.
+
+**Impact on current state:** Current repo has no `/apps` or `/packages` structure. Migration toward the monorepo layout is part of the TypeScript + Next.js migration work.
+
+**Governance refs:** Repository Governance v1.0, Architecture Blueprint v1.0, Jira Workflow Governance v1.1
+
+---
+
+## Release Management — 2026-05-25
+
+### ADR-005: Release Management Playbook v1.0 Adopted
+
+**Decision:** Release Management Playbook v1.0 is the governing standard for all release workflows, deployment governance, rollback expectations, monitoring procedures, mobile release coordination, and production approval requirements. Full document in `RELEASE_MANAGEMENT_PLAYBOOK.md`.
+
+**Rationale:** As the product moves toward multi-client (web + mobile) and multi-environment (dev, staging, QA, production) deployments, consistent release processes prevent deployment chaos, ensure rollback readiness, and enforce human approval gates before production. The playbook establishes that stability > speed.
+
+**Core principle:** Every release must be observable, recoverable, and governable.
+
+**Release types and approvals:**
+- Standard Release (planned delivery): TPM + Human approval required
+- Hotfix (critical production fix): TPM + Human approval required
+- Mobile Beta (TestFlight/Internal Testing): TPM approval required
+- Production Mobile Release (App Store/Play Store): Human approval required
+- Infrastructure Release (CI/CD/Auth/DB changes): TPM + Security + Human approval required
+
+**Release workflow stages:**
+```
+Code Complete → Code Review → QA Validation → Product Acceptance
+→ Release Risk Review → Human Approval → Production Release → Monitoring → Done
+```
+
+**Release readiness checklist (must pass before production deployment):**
+1. QA completed and signed off
+2. Product Acceptance completed
+3. Monitoring enabled
+4. Rollback available and tested
+5. Release notes prepared
+6. Crash reporting enabled (mobile)
+7. Analytics events validated
+8. Security review completed (if required)
+9. Compliance review completed (if required)
+
+**Mobile release governance (mandatory for mobile releases):**
+- TestFlight validation required
+- Internal testing validation required
+- Store metadata review required
+- Versioning consistency check required
+- Crash-free beta validation required
+- Staged rollout preferred (but not required)
+
+**Rollback governance:**
+- All releases require: rollback strategy, rollback owner, rollback validation
+- Rollback feasibility must be known before release begins
+- Rollback notes documented in release comments
+
+**Monitoring window (Released → Monitoring → Stable → Done):**
+- Post-release monitoring mandatory for crashes, API failures, auth issues, performance degradation, analytics anomalies
+- Stories transition from Released → Monitoring when deployed, then to Stable when monitoring window closes cleanly, then to Done
+
+**Hotfix governance (for urgent production fixes):**
+- Hotfixes require: incident classification (P0-P3), rollback awareness, post-release validation, postmortem documentation
+- Hotfix branches must branch from `main` and require Release Risk review before merging
+- Hotfix escalation to TPM required per Repository Governance hotfix rules
+
+**Impact on current state:** SprintOps Console prototype has no production infrastructure yet (no multiple environments, no mobile builds, no CI/CD pipeline). These standards apply from the first production-bound story onward and govern the Deploy Specialist Agent, Release Risk Agent, Monitoring Agent, and Incident Agent.
+
+**Governance refs:** Release Management Playbook v1.0, Repository Governance v1.0 (hotfix rules), Engineering Constitution §8 §9, Product Constitution §5
+
+---
+
+## Environment Governance — 2026-05-25
+
+### ADR-006: Environment Governance v1.0 Adopted
+
+**Decision:** Environment Governance v1.0 is the governing standard for all environment structure, deployment flow, configuration isolation, access control, and monitoring. Full document in `ENVIRONMENT_GOVERNANCE.md`.
+
+**Rationale:** As SprintOps Console evolves toward multi-environment (local/dev/staging/prod) deployment, consistent environment structure prevents data leakage, enables predictable rollbacks, and reduces release risk. Staging must mirror production to provide production confidence.
+
+**Mandatory environments:**
+- Local: developer iteration (mock data only)
+- Development: shared integration (sanitized test data)
+- Staging: release validation (scrubbed production-like data)
+- Production: customer-facing (real customer data only)
+
+**Deployment flow (no skipping stages):**
+```
+Local → Development → Staging → Production
+```
+
+**Key mandates:**
+- Separate configs, secrets, and databases per environment
+- No production data in lower environments (unless scrubbed)
+- No shared secrets across environments
+- Staging mirrors production configuration, integrations, monitoring
+- Production access restricted; sensitive changes require TPM + Security review + human approval
+- Mandatory monitoring in Staging + Production (logging, crash reporting, alerts, analytics)
+- Post-release monitoring window per Release Management Playbook §8
+
+**Secrets & Access Control:**
+- All secrets via environment variables (never in code)
+- Leaked secrets trigger immediate rotation
+- Production access audit-logged
+- Rotation on schedule (quarterly minimum)
+
+**Test Data Governance:**
+- Local: mock/synthetic only
+- Development: sanitized test data
+- Staging: scrubbed production-like data (structure intact, PII removed)
+- Production: real customer data only
+- Compliance review required for data migrations (GDPR, PCI-DSS, CCPA)
+
+**Monitoring Requirements:**
+- Structured logging (JSON, context-aware)
+- Crash reporting (Sentry, similar)
+- Real-time alerting (downtime, errors, performance)
+- Post-release window (Released → Monitoring → Stable → Done per Playbook §8)
+
+**Impact on current state:** SprintOps Console prototype runs locally only. Environment Governance applies when development branches and staging instances are created. Standard templates needed for: .env configuration per environment, secrets management, database initialization per environment, monitoring setup.
+
+**Governance refs:** Environment Governance v1.0, Release Management Playbook v1.0 §8, Engineering Constitution §7, Product Constitution §5
+
+---
+
+## Security Governance — 2026-05-25
+
+### ADR-007: Security Baseline v1.0 Adopted
+
+**Decision:** Security Baseline v1.0 is the governing standard for authentication, API security, secrets management, mobile security, dependency governance, logging, auditability, and data protection. Full document in `SECURITY_BASELINE.md`.
+
+**Rationale:** As SprintOps Console evolves toward multi-client (web + mobile) and API-first architecture, consistent security standards prevent credential leaks, unauthorized access, and data exposure. Security must be built in from the start, not added at release time.
+
+**Core security principles (all mandatory):**
+- Least privilege access (request only minimum permissions needed)
+- Secure defaults (deny by default, encrypt sensitive data, no debug modes in production)
+- Auditability (all security-relevant actions logged: who, what, when, where, why)
+- Environment separation (Dev ≠ Staging ≠ Prod; no cross-environment credential sharing)
+- Secret isolation (centralized secret management; no secrets in source code, frontend/mobile, or logs)
+
+**Authentication standards:**
+- Token expiration: access tokens short-lived (15-60 min), refresh tokens longer-lived
+- Refresh handling: one-time use, tokens rotated on refresh
+- RBAC: users have roles, roles grant permissions, checked at API layer
+- Secure storage: HTTP-only cookies (web), Keychain/Keystore (mobile)
+- Sensitive auth changes require Security Agent review + human approval
+
+**API security standards (per API Contract Standards v1.0):**
+- Auth validation: 401 for unauthenticated, 403 for unauthorized
+- Input validation: whitelist expected types, parameterize queries, reject oversized inputs
+- Rate limiting: prevent abuse, different limits for auth'd vs. unauth'd users
+- Structured error handling: standard format, no stack traces or internal details exposed
+- Avoid insecure endpoints: no debug endpoints, no auth bypass, CORS carefully configured
+
+**Secrets management:**
+- NO secrets in source control, frontend/mobile code, or logs (mandatory)
+- Centralized secret store (Vault, AWS Secrets Manager, etc.)
+- Rotation on schedule (quarterly minimum) or immediately if leaked
+- Audit logs for secret access
+
+**Mobile security standards:**
+- Secure token storage: Keychain (iOS), Keystore (Android)
+- HTTPS only, TLS 1.2+, certificate pinning recommended
+- Minimal permissions, graceful degradation if denied
+- Safe deep linking (validate URLs, only public content)
+- Obfuscation and binary hardening in production
+
+**Dependency governance:**
+- Automated scanning on every commit (npm audit, Snyk, etc.)
+- Known vulnerabilities block CI
+- High/Critical: fix immediately (same day)
+- Medium: fix next release (1-2 weeks)
+- Low: regular schedule (quarterly)
+
+**Logging & auditability:**
+- Audit logs: authentication, authorization changes, data access, sensitive operations
+- Release traceability: version, deployment time, who deployed, environment
+- Auth event logging: login success/failure, logout, permission denied, session timeout
+- Deployment visibility: start/end times, version, environment, health checks, rollbacks
+- Log retention per compliance (1-3 years typical); tamper-proof, access-controlled
+
+**Data protection:**
+- Encryption in transit (HTTPS) and at rest (for sensitive data)
+- Minimal exposure (only return needed data, sanitize logs)
+- Retention policy defined, old data deleted/anonymized
+- Access restrictions (only systems/users that need it, audit logs of access)
+
+**Code review security checklist:**
+- No secrets in code, input validation, authorization checks, parameterized queries
+- No unsafe deserialization, dependency scanning, safe error messages
+- Logging of sensitive operations, HTTPS/TLS enforced, encryption for sensitive data
+
+**Mandatory Security Agent review before production deployment:**
+- Auth/authz system changes, data access control changes, new sensitive APIs
+- New external service integrations, database schema changes for sensitive data
+- Secrets/credential rotation, security-critical library updates
+- HIGH/CRITICAL vulnerability fixes
+
+**Security incident response:**
+- Immediate mitigation, assessment, remediation, user notification, postmortem
+- Critical incidents escalate to TPM + Security Agent + human approval
+
+**Final principle:** Security is a product requirement, not a release-phase activity.
+
+**Impact on current state:** SprintOps Console prototype has basic auth scaffolding (window.SPRINTOPS_DATA mock). Baseline applies when backend API, user authentication, and sensitive data handling are implemented.
+
+**Governance refs:** Security Baseline v1.0, Engineering Constitution §4, API Contract Standards v1.0, Environment Governance v1.0, Release Management Playbook §3 §11
+
+---
+
+## Legal & Compliance Governance — 2026-05-25
+
+### ADR-008: Lightweight Legal & Compliance Governance v1.0 Adopted
+
+**Decision:** Lightweight Legal & Compliance Governance v1.0 establishes a Legal & Compliance Agent as a risk-identification layer to flag legal/compliance issues early without replacing human legal counsel. Full document in `LEGAL_COMPLIANCE_GOVERNANCE.md`.
+
+**Rationale:** As SprintOps Console evolves to handle user data (even in prototype form), privacy risks (GDPR/CCPA), accessibility requirements (WCAG), and third-party integrations increase. A lightweight compliance agent catches issues early and escalates to human counsel, reducing legal risk without heavy bureaucracy.
+
+**Agent Responsibilities (risk identification only):**
+- Data privacy checklist (GDPR/CCPA/PIPEDA, consent, deletion, cross-border transfers)
+- Consent flow review (explicit user consent for data uses)
+- Accessibility compliance reminders (WCAG 2.1 AA, ADA, Section 508)
+- Student/learner data risk checks (FERPA, PPRA, state laws)
+- Survey anonymity review (anonymous handling, aggregation)
+- Credential data exposure review (no plaintext passwords/tokens in logs)
+- Third-party SDK risk flagging (privacy impact, security posture, vendor agreements)
+- Terms/policy alignment checks (feature aligns with published ToS/privacy policy)
+- Legal escalation recommendations (flag HIGH-RISK items for counsel)
+
+**Agent Authority:**
+- MAY: flag risks, request human review, block release if checks missing
+- MAY NOT: approve contracts, provide final legal sign-off, replace human counsel
+
+**Release Blocking Conditions:**
+- Consent flow missing (GDPR/CCPA requirement)
+- Privacy-sensitive behavior unreviewed (new data collection)
+- Accessibility risk unresolved (WCAG violations)
+- Third-party SDK risk unknown (no privacy/security assessment)
+- Required human legal review pending (HIGH-RISK items)
+- Student data handling unreviewed (FERPA/PPRA implications)
+- Credential exposure risk unreviewed
+
+**Risk Levels:**
+- GREEN: no data changes, no accessibility issues, no third-party SDK
+- YELLOW: minor data changes (within policy), accessibility review recommended (not blocking)
+- RED: new data collection, student data changes, unknown SDK, blocking release
+
+**Compliance Checklists (6 mandatory):**
+1. Data Privacy: 12 items (collection, notice, policy, consent, deletion, retention, transfer, processors)
+2. Accessibility: 10 items (WCAG AA, contrast, alt text, keyboard nav, screen reader, focus, labels, errors, color, captions)
+3. Student Data (if applicable): 7 items (FERPA, PPRA, marketing, third-party access, state laws, breach notification)
+4. Authentication & Credentials: 6 items (no plaintext, no exposure, token security, key protection, rotation, incident response)
+5. Third-Party SDK: 8 items (privacy impact, security posture, DSA/DPA, vendor viability, due diligence, data flow, consent, breach obligations)
+6. Terms/Policy Alignment: automated checks for feature/policy coherence
+
+**Escalation to Human Counsel When:**
+- RED risk (new data, student data, compliance gaps)
+- DPA needed (GDPR)
+- Contract review needed (vendor, SDK)
+- Policy/ToS updates required
+- Regulatory compliance question (HIPAA, FERPA, etc.)
+- Incident response / breach notification
+- Litigation / legal hold
+- IP question
+- Employment law concern
+
+**Integration Points:**
+- Product Manager Agent (scope, regulatory requirements)
+- UX Agent (consent flow UX, accessibility, privacy notice)
+- Architecture Agent (data storage, third-party integrations, data flow)
+- Security Agent (credential handling, breach risk)
+- Release Risk Agent (legal/compliance as release blockers)
+- QA Agent (accessibility testing, consent flow testing, data handling tests)
+
+**Final Principle:** Lightweight risk-identification layer; not an AI attorney. Flags issues early, prevents unreviewed legal risks from production, escalates to human counsel for decisions.
+
+**Impact on current state:** SprintOps Console prototype stores no user data yet. Governance applies when user authentication, data collection, or third-party integrations (analytics, etc.) are introduced.
+
+**Governance refs:** Lightweight Legal & Compliance Governance v1.0, GDPR/CCPA/PIPEDA frameworks, FERPA/PPRA (student data), WCAG 2.1 AA (accessibility), Release Management Playbook §3 §11
+
+---
+
+## Product Memory System — 2026-05-25
+
+### ADR-009: Product Memory System v1.0 Adopted
+
+**Decision:** Product Memory System v1.0 is the durable knowledge storage system for organizational intelligence, decision rationale, learnings, and constraints. Full document in `PRODUCT_MEMORY_SYSTEM.md`.
+
+**Rationale:** As SprintOps Console evolves across multiple sprints, releases, and potential team changes, decisions, learnings, and constraints must be recorded to prevent organizational forgetting, architecture drift, repeated mistakes, and lost context. Product Memory preserves decision continuity.
+
+**Core Memory Categories (7):**
+1. Product Decisions — why features exist, roadmap rationale, scope boundaries, rejected alternatives
+2. UX Decisions — workflow rationale, navigation, accessibility, mobile-specific behaviors
+3. Architecture Decisions — API strategies, state management, integration rationale, scaling approaches
+4. Technical Debt — known compromises, temporary workarounds, repayment plans
+5. Release Learnings — deployment issues, rollback decisions, recurring bugs, monitoring gaps
+6. Incident Postmortems — production incidents, root cause, prevention actions, P0-P3 severity
+7. Customer Context — institution-specific constraints, contract-sensitive behaviors, integration expectations
+   + Operational Learnings — sprint process improvements, workflow optimizations
+
+**What to Store (Durable Knowledge):**
+- Decisions (what was decided and why)
+- Rationale (context, alternatives considered, tradeoffs)
+- Learnings (what we learned and why it matters)
+- Standards (how we do things)
+- Constraints (what limits us)
+
+**What NOT to Store:**
+- Temporary conversations, random brainstorming, noisy meeting notes
+- Low-confidence assumptions, personal opinions unrelated to decisions
+- Duplicate information (reference Jira for conversation history if needed)
+
+**Decision Record Format (9 fields):**
+- Decision (short, actionable statement)
+- Context (why it matters)
+- Rationale (why this over alternatives)
+- Alternatives Considered (what we rejected and why)
+- Risks (known limitations, scaling concerns)
+- Owner (who owns this going forward)
+- Date (YYYY-MM-DD)
+- Reviewed by (human sign-off if critical)
+- Review cycle (when we revisit this decision)
+
+**Retrieval Rule:**
+- Before proposing major changes, agents check Product Memory for related decisions
+- Agents cite prior decisions when relevant
+- Architecture decisions block contradictory proposals until superseded explicitly
+
+**Memory Maintenance:**
+- Product Memory Agent captures decisions and learnings post-release
+- Append-only: decisions never deleted, superseded ones marked clearly
+- Quarterly review: identify stale decisions, update roadmap, identify emerging patterns
+- Link related decisions for traceability
+
+**Folder Structure (recommended):**
+```
+/product-memory
+  /product-decisions       → feature scopes, roadmap, scope reductions
+  /ux-decisions            → workflow, navigation, accessibility, mobile UX
+  /architecture-decisions  → API, state management, database, scaling
+  /technical-debt         → TypeScript migration, CI/CD, test suite, etc.
+  /release-learnings      → incidents, rollbacks, monitoring gaps, recurring bugs
+  /incident-postmortems   → P0-P3 incidents, root cause, prevention
+  /customer-context       → constraints, contracts, integrations, expectations
+  /governance-history     → ADR adoptions, governance updates
+```
+
+**Final Principle:** Optimize for decision continuity, not documentation volume. Every decision should have clear rationale that future developers understand.
+
+**Impact on current state:** Product Memory System is being populated with ADR-001 through ADR-009 documenting governance adoptions. System provides foundation for future product, UX, architecture, and operational decisions.
+
+**Governance refs:** Product Memory System v1.0, Engineering Constitution §10 (documentation), Product Constitution §4 (product governance)
+
+---
+
+## Metrics & Operational Dashboard — 2026-05-25
+
+### ADR-010: Metrics & Operational Dashboard Framework v1.0 Adopted
+
+**Decision:** Metrics & Operational Dashboard Framework v1.0 defines organizational health metrics, release metrics, engineering metrics, product metrics, operational intelligence, and AI governance metrics to enable data-driven decisions. Full document in `METRICS_DASHBOARD_FRAMEWORK.md`.
+
+**Rationale:** As SprintOps Console moves toward multi-client, API-first architecture with AI agent governance, visibility into delivery predictability, quality, efficiency, and user impact is essential. Metrics enable informed decision-making and early problem detection.
+
+**Core Principle:** Metrics exist to improve decisions, not to create artificial pressure.
+
+**6 Dashboard Categories:**
+
+1. **TPM Dashboard:** Sprint predictability, blocked work, release stability, incident frequency, velocity, carryover, release success rate, QA escape rate, time-to-value
+
+2. **Engineering Dashboard:** Build success rate, deployment frequency, lead time, cycle time, technical debt growth, test coverage, PR review time, review cycles, dependency vulnerabilities, TypeScript adoption
+
+3. **Product Dashboard:** Feature adoption, funnel completion, retention, UX friction, crash-free sessions, error rate, performance (P95 response time), analytics completeness, NPS, feature utilization
+
+4. **Operational Dashboard:** Incident frequency, incident duration, rollback frequency, release failure rate, QA escape rate, app store rejection rate, SLA uptime, security incidents, data breaches, on-call escalations
+
+5. **AI Governance Dashboard:** AI-generated PR count, deployment assist rate, governance violations, manual override frequency, agent effectiveness, security sign-off rate, test coverage by AI, escalation rate, decision traceability, comment quality
+
+6. **Metric Definitions:** Formulas and calculations for sprint predictability, deployment frequency, lead time, test coverage, incident frequency, QA escape rate, feature adoption, crash-free sessions
+
+**Targets (Aspirational, Not Punitive):**
+- Sprint predictability: 80%+
+- Build success rate: 95%+
+- Deployment frequency: 1-2/week
+- Lead time: <7 days
+- Test coverage: 70%+
+- Incident frequency: <1 P0/P1 per month
+- QA escape rate: <2%
+- Crash-free sessions: 99%+
+- Release failure rate: <3%
+- Feature adoption: >50% by week 4
+
+**Cadence:**
+- Weekly: Sprint health, build status, critical incidents, blockers
+- Monthly: Feature adoption, retention, technical debt, QA escape rate, agent effectiveness
+- Quarterly: Trend analysis, strategic progress, customer satisfaction
+
+**Anti-Patterns (Avoid):**
+- Vanity metrics (lines of code, commit count)
+- Individual metrics (blame-focused)
+- Metrics without context (targets without improvement roadmap)
+- Metrics as punishment (bonus penalties for missing targets)
+- Static targets (inflexible, ignore context)
+
+**Data Integrity Rules:**
+- Single source of truth per metric (Jira, GitHub, Sentry, etc.)
+- Automated collection (not manual spreadsheets)
+- Written definitions accessible to team
+- No retroactive definition changes mid-quarter
+- Transparent visibility to team (not hidden in executive reports)
+- Monthly audit of metric calculation accuracy
+
+**Tools:**
+- Jira dashboard (sprint, velocity, predictability)
+- GitHub Actions / CI logs (build success, deployment frequency)
+- Sentry / error tracking (crash-free sessions, error rate)
+- Analytics platform (feature adoption, retention, funnel)
+- Grafana + Prometheus (infrastructure, performance)
+
+**Final Principle:** Metrics exist to improve decisions and identify problems, not to punish teams or validate decisions already made. Use metrics to ask "why?" and drive action.
+
+**Impact on current state:** Dashboard framework provides structure for tracking SprintOps Console delivery, quality, and user impact. Enables data-driven decisions on roadmap prioritization, risk assessment, and process improvement.
+
+**Governance refs:** Metrics & Operational Dashboard Framework v1.0, Product Constitution §1 (simplicity), Engineering Constitution §8 (observability), Jira Workflow Governance §16 (stability over speed)
+
+---
+
+## Release & Operations Decision — 2026-05-25
+
+### ADR-011: Incident Management Playbook v1.0 Adopted
+
+**Decision:** Incident Management Playbook v1.0 defines incident handling, escalation flow, rollback procedures, communication expectations, and postmortem governance. Full document in `INCIDENT_MANAGEMENT_PLAYBOOK.md`.
+
+**Rationale:** As SprintOps Console moves into production, incident response procedures must be clear, consistent, and learning-oriented. A unified playbook ensures rapid response, appropriate escalation, and organizational learning from incidents rather than blame.
+
+**Key mandates:**
+
+1. **Incident Severity Classification (§2):**
+   - SEV-1: Production outage / major data risk (immediate escalation)
+   - SEV-2: Major feature degradation (urgent escalation)
+   - SEV-3: Partial degradation (standard escalation)
+   - SEV-4: Minor issue (routine investigation)
+
+2. **Incident Workflow (§3):**
+   - Incident Detected → Severity Classification → Containment → Rollback Assessment → Resolution → Monitoring → Postmortem → Product Memory Update
+
+3. **Incident Ownership (§4):**
+   - Incident Response Agent: summaries and coordination
+   - TPM Agent: escalation decisions
+   - DevOps Agent: rollback execution
+   - QA Agent: validation
+   - Security Agent: security assessment
+   - Human: final production decisions
+
+4. **Rollback Rules (§5):**
+   - Rollback preferred when: user trust impacted, crash spikes widespread, auth unstable, or data integrity at risk
+   - DevOps Agent must execute rollback with Security Agent validation
+   - Post-rollback: immediate root cause investigation, fix in parallel track
+
+5. **Postmortem Standards (§6) — Mandatory:**
+   - Root cause analysis (system-level, not blame)
+   - Timeline of detection → response → resolution
+   - Impact assessment (users, data, revenue, trust)
+   - Detection gap analysis (what monitoring/alerts missed it)
+   - Resolution steps taken
+   - Prevention steps (architectural, operational, monitoring)
+   - Recorded in PRODUCT_MEMORY.md for organizational learning
+
+6. **Final Principle (§7):** Incidents are organizational learning opportunities, not blame exercises. Postmortems focus on systemic improvement, not individual performance.
+
+**Integration with existing governance:**
+- Release Management Playbook §9 (hotfix governance) — incidents may trigger hotfix releases per defined approval flow
+- Environment Governance §12 (production monitoring) — incidents detected in production progression (Local → Dev → Staging → Prod)
+- Security Baseline §11-12 (incident security assessment) — Security Agent reviews all SEV-1 and SEV-2 incidents for security implications
+- Jira Workflow Governance §15 (incident agent ownership) — Incident Agent manages status transitions and escalations
+
+**Impact on current state:** SprintOps Console is in prototype phase (no production yet). This playbook provides the governance framework for when incidents occur in production. Must be referenced in:
+- monitoring-agent.sh (release monitoring transitions to incident response)
+- incident-agent.sh (incident status workflow and severity classification)
+- deploy-agent.sh (rollback availability as release gate)
+- security-agent.sh (incident security assessment checklist)
+
+**Governance refs:** Incident Management Playbook v1.0, Release Management Playbook v1.0 §9, Environment Governance v1.0 §12, Security Baseline v1.0 §11-12, Jira Workflow Governance v1.1 §15
+
+---
+
+## AI Agent Organization — 2026-05-25
+
+### ADR-012: Agent Role Specifications v1.0 Adopted
+
+**Decision:** Agent Role Specifications v1.0 defines the mission, responsibilities, inputs, outputs, authority, and governance constraints for 17 AI agents in the product organization. Full document in `AGENT_ROLE_SPECIFICATIONS.md`.
+
+**Rationale:** As SprintOps Console scales from a single-person product to an AI-native organization, clarity on agent roles prevents mission creep, authority confusion, and unchecked autonomous decisions. Each agent has explicit guardrails and escalation rules.
+
+**17 Agent Roles:**
+
+1. **AI Technical Program Manager Agent** — executive coordinator, sprint supervision, cross-agent coordination, delivery governance, escalation management
+2. **Product Manager Agent** — product clarity, backlog quality, prioritization, PRDs, feature definition, Product Acceptance
+3. **UX / Design System Agent** — user flows, wireframes, accessibility, design consistency, UX governance
+4. **Architecture Agent** — API design, integration strategy, scalability review, security patterns, technical governance
+5. **Delivery Coordinator / Scrum Agent** — sprint orchestration, capacity visibility, dependency tracking, blocker escalation
+6. **Web Frontend Agent** — React implementation, responsive UI, accessibility, performance, shared components
+7. **React Native Mobile Agent** — React Native/Expo implementation, mobile components, cross-platform consistency
+8. **Backend / API Agent** — API implementation, authentication, business logic, integrations, DB management, structured logging
+9. **QA & Automation Agent** — test plans, regression validation, E2E testing, release quality, smoke testing
+10. **Release / DevOps Agent** — CI/CD, staging deployments, TestFlight/Play Store, rollbacks, monitoring
+11. **Release Readiness & Risk Agent** — release scoring, crash analysis, rollback validation, deployment risk, release recommendations
+12. **Product Memory Agent** — store durable organizational intelligence (decisions, learnings, constraints)
+13. **Security Agent** — OWASP validation, dependency scanning, auth review, PII handling, compliance
+14. **Legal & Compliance Agent** — risk identification (not legal sign-off), consent flows, accessibility, SDK risk
+15. **Incident Response Agent** — incident summaries, root cause aggregation, rollback recommendations, postmortems
+16. **Analytics Agent** — funnel analysis, feature adoption, UX friction detection, retention analysis
+17. **FinOps Agent** — cloud costs, AI token monitoring, infrastructure optimization
+
+**Authority Constraints:**
+
+- **May escalate:** TPM Agent (blockers, release delays, architecture reviews)
+- **May reject:** Architecture Agent (unsafe design), QA Agent (unstable builds), UX Agent (inaccessible experiences)
+- **May NOT:** AI agents may NOT deploy to production (Release/DevOps Agent limited to staging), override governance, or bypass QA/security/release checks
+- **Final decisions:** Always remain with humans (TPM, Security Agent, human approver)
+
+**Escalation Rules:**
+- Architecture violations → Architect Agent → TPM Agent
+- Security concerns → Security Agent → TPM Agent
+- Compliance/legal concerns → Legal & Compliance Agent → TPM Agent
+- Production incidents → Incident Response Agent → TPM Agent
+- Release blockers → Any agent → TPM Agent
+
+**Standard Agent Template:**
+- Mission (why the agent exists)
+- Responsibilities (what it does)
+- Inputs (what it consumes)
+- Outputs (what it produces)
+- Authority (what it can approve/reject)
+- Escalation Rules (when to escalate to TPM)
+- Governance Constraints (what it may NOT do)
+- Success Metrics (how to measure effectiveness)
+- Communication Style (who it talks to, how)
+- Product Memory Responsibilities (what knowledge to preserve)
+
+**Impact on current state:** SprintOps Console is still a single-person prototype. These role specifications provide the framework for staffing an AI-native organization as the product grows. Enables clear handoff protocols (§2 in Interaction Protocols), authority clarity, and escalation paths.
+
+**Final Principle:** Governable systems scale better than autonomous chaos. Each agent operates within guardrails; humans retain final authority on production, governance, and strategic decisions.
+
+**Governance refs:** Agent Role Specifications v1.0, Agent Interaction Protocols v1.0, Jira Workflow Governance v1.1, Engineering Constitution §9 (AI Agent Boundaries), Product Constitution §9 (AI Agent Boundaries)
+
+---

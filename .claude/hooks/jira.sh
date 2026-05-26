@@ -57,13 +57,15 @@ jira_comment() {
 
 # ── Prompt Engineering Standards v1.0 ─────────────────────────────────────
 # Shared prompt components sourced by every agent
+# AGENT_CONTEXT = product header (per-product) + governance block (shared)
 
-AGENT_CONTEXT="Context: SprintOps Console — React 18, no-build, Babel standalone JSX (current prototype state).
+# Default product header — overridden by load_product_context() below
+_DEFAULT_PRODUCT_HEADER="Context: SprintConsole — React 18, Babel standalone JSX, CSS design tokens (prototype phase)
 Core files: sprintops-app.jsx, sprintops-shared.jsx, sprintops-layout.jsx,
   sprintops-readiness.jsx, sprintops-estimation.jsx, sprintops-release.jsx,
-  sprintops-config.jsx, sprintops-data.js, colors_and_type.css
+  sprintops-config.jsx, sprintops-data.js, colors_and_type.css"
 
-Target architecture (ARCHITECTURE.md — governs all structural and stack decisions):
+_GOVERNANCE_CONTEXT="Target architecture (ARCHITECTURE.md — governs all structural and stack decisions):
 - Web: React + TypeScript + Next.js + React Query + Zustand/Redux Toolkit → /web
 - Mobile: React Native + Expo + TypeScript + shared design system → /mobile
 - Backend: API-first, version-aware, centralized auth + validation + logging → /backend
@@ -195,6 +197,11 @@ Governance: Engineering Constitution + Product Constitution + Architecture Bluep
   + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Incident Management Playbook v1.0
   + Agent Role Specifications v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
 
+# Assemble AGENT_CONTEXT from default product header + shared governance
+AGENT_CONTEXT="${_DEFAULT_PRODUCT_HEADER}
+
+${_GOVERNANCE_CONTEXT}"
+
 AGENT_CONSTRAINTS="Constraints:
 - Avoid technical jargon in user/business-facing sections
 - State uncertainty with explicit confidence level (HIGH / MEDIUM / LOW)
@@ -311,3 +318,84 @@ Conflict Resolution Order (Agent Interaction Protocols §4):
 TPM Agent will review and post resolution."
   echo "$SOURCE_AGENT: Escalated $KEY to TPM — $REASON"
 }
+
+# ── Multi-Product Support ───────────────────────────────────────────────────
+# load_product_context: loads per-product config from products/<id>/config.env
+# Overrides JIRA_PROJECT, AGENT_CONTEXT header, PRODUCT_MEMORY_FILE, WIP limits
+#
+# Resolution order:
+#   1. PRODUCT env var (explicit override)
+#   2. Auto-detect from Jira key prefix (e.g. "SC-123" → "sprintconsole")
+#   3. Default product from products/registry.json
+#
+# Called automatically at the bottom of this file (on every agent startup).
+# Agents that pass a key can call: load_product_context "$KEY"
+
+_JIRA_SH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "$_JIRA_SH_DIR/../.." && pwd)"
+_PRODUCTS_DIR="$_REPO_ROOT/products"
+_REGISTRY="$_PRODUCTS_DIR/registry.json"
+
+load_product_context() {
+  local KEY_HINT="${1:-}"
+  local PID="${PRODUCT:-}"
+
+  # Auto-detect from Jira key prefix (e.g. "SC-123" → project "SC")
+  if [ -z "$PID" ] && [ -n "$KEY_HINT" ] && [ -f "$_REGISTRY" ]; then
+    local PREFIX="${KEY_HINT%%-*}"
+    PID=$(jq -r --arg p "$PREFIX" \
+      '.products[] | select(.jira_project == $p) | .id' \
+      "$_REGISTRY" 2>/dev/null | head -1)
+  fi
+
+  # Fall back to registry default
+  if [ -z "$PID" ] && [ -f "$_REGISTRY" ]; then
+    PID=$(jq -r '.default // .products[0].id' "$_REGISTRY" 2>/dev/null | head -1)
+  fi
+
+  [ -z "$PID" ] && return 0  # nothing to load; keep compiled defaults
+
+  local CFG="$_PRODUCTS_DIR/$PID/config.env"
+  [ ! -f "$CFG" ] && return 0
+
+  source "$CFG"
+
+  # Rebuild AGENT_CONTEXT header with product-specific values
+  local HEADER="Context: ${PRODUCT_NAME} — ${PRODUCT_STACK}
+Core files: ${PRODUCT_CORE_FILES}"
+
+  AGENT_CONTEXT="${HEADER}
+
+${_GOVERNANCE_CONTEXT}"
+
+  # Export so sub-shells (e.g. claude --print) inherit
+  export JIRA_PROJECT
+  export PRODUCT_ID PRODUCT_NAME
+  export PRODUCT_MEMORY_FILE="$_PRODUCTS_DIR/$PID/PRODUCT_MEMORY.md"
+  export PRODUCT_WIP_LIMIT="${PRODUCT_WIP_LIMIT:-6}"
+  export PRODUCT_TEAM_EMAIL="${PRODUCT_TEAM_EMAIL:-}"
+  export AGENT_CONTEXT
+}
+
+# for_each_product: iterate every registered product, load its context, run callback
+# Usage: for_each_product <bash_function> [extra args passed to function]
+# The callback receives no positional args; it reads JIRA_PROJECT, AGENT_CONTEXT, etc.
+for_each_product() {
+  local FN="$1"; shift
+  if [ ! -f "$_REGISTRY" ]; then
+    load_product_context
+    "$FN" "$@"
+    return
+  fi
+  local IDS
+  IDS=$(jq -r '.products[] | select(.status // "active" == "active") | .id' \
+        "$_REGISTRY" 2>/dev/null)
+  for PID in $IDS; do
+    PRODUCT="$PID" load_product_context
+    "$FN" "$@"
+  done
+}
+
+# Load default product context at source time (can be re-called with a key hint)
+load_product_context
+
