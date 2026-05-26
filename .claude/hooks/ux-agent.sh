@@ -1,122 +1,116 @@
 #!/usr/bin/env bash
-# UX Designer Agent — Product Constitution §2, §6
-# Reviews "In Progress" stories with full §2 UX principle coverage:
-# clarity, predictability, low friction, recoverability, progressive disclosure,
-# error message quality, offline considerations, mobile ergonomics, first-use experience
+
+# UX Agent — UX and Design System
+# Mission: Ensure intuitive, accessible, consistent UX aligned with Claude Design
+# Claude Design is the canonical design source of truth
+# Governs: TIER_1_AGENT_PROMPTS.md §3, Agent Role Specifications v1.0 §3
+# Authority: Recommend approval/rejection; block inaccessible/inconsistent UX by recommendation
+# Cannot: create separate design system without approval
+# Advisory-first: recommends; humans decide
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
 
-STORIES=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Story+AND+status+in+(%22In+Progress%22,%22In+Development%22)&maxResults=10&fields=summary,description")
-COUNT=$(echo "$STORIES" | jq '.issues | length' 2>/dev/null)
-COUNT=${COUNT:-0}
+TARGET_KEY="${1:-}"
+[ -z "$TARGET_KEY" ] && echo "Usage: ux-agent.sh <JIRA-KEY>" && exit 1
 
-[ "$COUNT" -eq 0 ] && exit 0
+ISSUE=$(jira_get "issue/$TARGET_KEY?fields=summary,status,description,labels,issuetype")
+SUMMARY=$(echo "$ISSUE" | jq -r '.fields.summary // ""')
+STATUS=$(echo "$ISSUE" | jq -r '.fields.status.name // ""')
+LABELS=$(echo "$ISSUE" | jq -r '[.fields.labels[]?] | join(",")' 2>/dev/null || echo "")
+ISSUE_TYPE=$(echo "$ISSUE" | jq -r '.fields.issuetype.name // ""')
 
-echo "UX Agent: $COUNT in-progress stories to review (§2 full coverage)"
+echo "UX Agent: Reviewing $TARGET_KEY ($STATUS)"
 
-echo "$STORIES" | jq -r '.issues[] | "\(.key)|\(.fields.summary)"' | while IFS='|' read -r KEY SUMMARY; do
-
-  COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=50")
-  HAS_UX=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep -c '\[UX DESIGNER\]' || true)
-  [ "$HAS_UX" -gt 0 ] && continue
-
-  UX_NOTES=$(claude --print \
-"Role: You are the UX Designer Agent for SprintOps Console.
+# Run Claude UX analysis
+ANALYSIS=$(claude --print \
+"Role: You are the UX Agent for SprintOps Console — design system and accessibility authority.
+Claude Design is the canonical design source of truth.
 $AGENT_CONTEXT
 
-Task: Review this story for full §2 UX principle coverage and produce a UX specification.
+Task: Review the user experience, design consistency, accessibility, and mobile/web alignment for this story.
 
 Inputs:
-- Story: $SUMMARY
+- Story: $SUMMARY ($TARGET_KEY)
+- Type: $ISSUE_TYPE
+- Status: $STATUS
+- Labels: $LABELS
+- Design source: Claude Design (canonical)
+- Accessibility standard: WCAG 2.1 AA minimum
+- Platforms: Web (React 18), Mobile (React Native + Expo)
 - Source files readable via Read tool
 
-Product Constitution §2 requires every workflow to address:
-- Clarity and predictability (user knows where they are, what happens next)
-- Low friction (minimal steps to complete key actions)
-- Recoverability (users can undo, retry, or correct mistakes)
-- Progressive disclosure (advanced functionality revealed only when needed)
-- Error state quality (clear language, recovery suggestion, no tech jargon, progress preserved)
-- Loading / empty / error / offline states for every feature
-- Mobile ergonomics (touch targets ≥44px, thumb-reachable actions, responsive)
-- First-use experience (new users quickly understand the core workflow)
+Design Review Checklist:
+1. User flow — is the happy path clear and intuitive?
+2. Design system alignment — does UI use sprintops-shared components and color_and_type.css tokens?
+3. Accessibility — keyboard nav, ARIA labels, contrast, semantic HTML?
+4. Error/loading/empty states — are all three UX states defined?
+5. Mobile/Web — is design responsive or explicitly mobile-first?
+6. Consistency — does the pattern match existing UI in the codebase?
+7. First-use experience — can a new user understand the feature without explanation?
 
-§10 Decision Hierarchy: User trust > Accessibility > Stability > Simplicity
+Output EXACTLY this format:
 
-Output format — output EXACTLY these sections:
-
-USER_FLOW:
-- <step 1 — what user sees/does>
-- <step 2>
-- <step 3>
-
-RECOVERABILITY:
-- <how user undoes or retries the primary action>
-- <what happens if the action partially fails>
-
-PROGRESSIVE_DISCLOSURE:
-- <what is shown immediately vs. revealed on demand>
-
-ERROR_STATES:
-- <error scenario>: <clear user-facing message — no tech jargon> — <recovery action offered>
-- <error scenario>: <message> — <recovery action>
-
-LOADING_EMPTY_OFFLINE:
-- Loading: <what skeleton/spinner to show>
-- Empty: <message and call-to-action for zero-data state>
-- Offline: <graceful degradation behaviour>
-
-MOBILE_ERGONOMICS:
-- <touch target size note>
-- <thumb-zone consideration for primary action>
-- <responsive layout note>
-
-FIRST_USE_EXPERIENCE:
-- <how a new user would understand this feature without explanation>
-
-COMPONENTS_TO_USE:
-- <component from sprintops-shared.jsx and why>
+UX_SUMMARY: <one-line assessment of UX readiness>
+USER_FLOW_REVIEW: <Y/N: is happy path clear and intuitive>
+DESIGN_SYSTEM_ALIGNMENT: <Y/N: uses shared components and tokens; if N, which gaps>
+ACCESSIBILITY_REVIEW: <Y/N: WCAG 2.1 AA compliant; if N, which violations>
+MOBILE_WEB_NOTES: <responsive design notes; web-specific or mobile-first implications>
+ISSUES_FOUND: <bullet list of UX/accessibility/consistency issues; or 'None — UX is clean'>
+RECOMMENDATION: <Approve | Revise | Block — with brief reason>
 
 $AGENT_CONSTRAINTS
-
 $AGENT_ESCALATION_RULES
-
 $STANDARD_OUTPUT_SUFFIX" \
-    --allowedTools "Read" \
-    --no-conversation 2>/dev/null)
+  --allowedTools "Read" \
+  --no-conversation 2>/dev/null)
 
-  COMMENT="[UX DESIGNER] UX Specification — §2 §6
+extract_standard "$ANALYSIS"
 
-User Flow:
-$(echo "$UX_NOTES" | sed -n '/^USER_FLOW:/,/^RECOVERABILITY:/p' | grep '^-' | sed 's/^- /→ /')
+# Parse verdicts
+UX_SUMMARY=$(echo "$ANALYSIS" | grep '^UX_SUMMARY:' | sed 's/^UX_SUMMARY: //')
+USER_FLOW=$(echo "$ANALYSIS" | grep '^USER_FLOW_REVIEW:' | sed 's/^USER_FLOW_REVIEW: //')
+DESIGN_ALIGN=$(echo "$ANALYSIS" | grep '^DESIGN_SYSTEM_ALIGNMENT:' | sed 's/^DESIGN_SYSTEM_ALIGNMENT: //')
+A11Y=$(echo "$ANALYSIS" | grep '^ACCESSIBILITY_REVIEW:' | sed 's/^ACCESSIBILITY_REVIEW: //')
+MOBILE_WEB=$(echo "$ANALYSIS" | grep '^MOBILE_WEB_NOTES:' | sed 's/^MOBILE_WEB_NOTES: //')
+ISSUES=$(echo "$ANALYSIS" | sed -n '/^ISSUES_FOUND:/,/^RECOMMENDATION:/p' | sed '1d;$d')
+RECOMMENDATION=$(echo "$ANALYSIS" | grep '^RECOMMENDATION:' | sed 's/^RECOMMENDATION: //')
 
-Recoverability:
-$(echo "$UX_NOTES" | sed -n '/^RECOVERABILITY:/,/^PROGRESSIVE_DISCLOSURE:/p' | grep '^-' | sed 's/^- /↩ /')
+# Determine verdict icon
+VERDICT_ICON="✅"
+VERDICT_TAG="APPROVE"
+echo "$RECOMMENDATION" | grep -qi "revise" && VERDICT_ICON="⚠️" && VERDICT_TAG="REVISE"
+echo "$RECOMMENDATION" | grep -qi "block" && VERDICT_ICON="❌" && VERDICT_TAG="BLOCK"
 
-Progressive Disclosure:
-$(echo "$UX_NOTES" | sed -n '/^PROGRESSIVE_DISCLOSURE:/,/^ERROR_STATES:/p' | grep '^-' | sed 's/^- /◈ /')
+COMMENT="[UX AGENT] $VERDICT_ICON UX Review
 
-Error States:
-$(echo "$UX_NOTES" | sed -n '/^ERROR_STATES:/,/^LOADING_EMPTY_OFFLINE:/p' | grep '^-' | sed 's/^- /⚠ /')
+Story: $SUMMARY ($TARGET_KEY)
+Status: $STATUS
 
-Loading / Empty / Offline:
-$(echo "$UX_NOTES" | sed -n '/^LOADING_EMPTY_OFFLINE:/,/^MOBILE_ERGONOMICS:/p' | grep '^-' | sed 's/^- /⟳ /')
+## UX Summary
+$UX_SUMMARY
 
-Mobile Ergonomics:
-$(echo "$UX_NOTES" | sed -n '/^MOBILE_ERGONOMICS:/,/^FIRST_USE_EXPERIENCE:/p' | grep '^-' | sed 's/^- /📱 /')
+## User Flow Review
+$USER_FLOW
 
-First-Use Experience:
-$(echo "$UX_NOTES" | sed -n '/^FIRST_USE_EXPERIENCE:/,/^COMPONENTS_TO_USE:/p' | grep '^-' | sed 's/^- /★ /')
+## Design System Alignment
+$DESIGN_ALIGN
 
-Shared Components:
-$(echo "$UX_NOTES" | sed -n '/^COMPONENTS_TO_USE:/,$p' | grep '^-' | sed 's/^- /✦ /')"
+## Accessibility Review
+$A11Y
 
-  extract_standard "$UX_NOTES"
-  COMMENT="$COMMENT
+## Mobile/Web Notes
+$MOBILE_WEB
+
+## Issues Found
+$([ -z "$ISSUES" ] && echo "None — UX is clean" || echo "$ISSUES")
+
+## Recommendation
+$RECOMMENDATION
 $(standard_fields_block)"
 
-  jira_comment "$KEY" "$COMMENT"
-  echo "UX Agent: Full §2 spec posted to $KEY"
+echo "$COMMENT"
+jira_comment "$TARGET_KEY" "$COMMENT" 2>/dev/null || true
 
-done
+echo "UX Agent: $TARGET_KEY [$VERDICT_TAG]"
 exit 0

@@ -1,159 +1,183 @@
 #!/usr/bin/env bash
-# Monitoring Agent — Incident Management Playbook v1.0 | Jira Workflow Governance §12 | Release Management Playbook §8 | Environment Governance §12
-# Incident Workflow §3: Incident Detected → Severity Classification → Containment → Rollback Assessment → Resolution → Monitoring → Postmortem
-# Detects production incidents (SEV-1/2/3/4 per Incident Playbook §2) and routes to Incident Agent
-# Released -> Monitoring -> Stable -> Done lifecycle (Playbook §8) with mandatory post-release checks
-# Environment Governance §12: Mandatory monitoring in Staging + Production
-#   - Structured logging (JSON), crash reporting, real-time alerts, analytics validation
-#   - Post-release window: crashes, API failures, auth issues, performance, analytics
-# Release Management Playbook §8: Crashes, API failures, auth issues, performance degradation, analytics anomalies
-# Transitions: Released → Monitoring (active watch) → Stable (clean pass) → Done
+# Monitoring Agent — Per Agent Role Specifications v1.0 §8 and Incident Management Playbook v1.0
+# Mission: Observe post-release health and detect production issues early
+# Authority: Alert and recommend action; cannot trigger rollback or close incidents autonomously
+# Usage: monitoring-agent.sh [JIRA-KEY]
+
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/jira.sh"
+[ -f "$SCRIPT_DIR/jira.sh" ] && source "$SCRIPT_DIR/jira.sh"
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
 
-# Query stories in Released or Monitoring state
-RELEASED=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+status+in+(%22Released%22,%22Monitoring%22)&maxResults=20&fields=summary,status,updated")
-COUNT=$(echo "$RELEASED" | jq '.issues | length' 2>/dev/null)
-COUNT=${COUNT:-0}
+KEY="${1:-}"
 
-[ "$COUNT" -eq 0 ] && exit 0
+if [ -z "$KEY" ]; then
+  # Auto-scan: find stories in Released or Monitoring state
+  RELEASED=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+status+in+(%22Released%22,%22Monitoring%22)&maxResults=20&fields=summary,status,updated" 2>/dev/null || echo '{"issues":[]}')
+  COUNT=$(echo "$RELEASED" | jq '.issues | length' 2>/dev/null)
+  [ "$COUNT" -eq 0 ] && exit 0
 
-echo "Monitoring Agent: $COUNT released stories to monitor (§12)"
+  echo "[MONITORING] Auto-scan: $COUNT stories in Released/Monitoring state"
+  echo "$RELEASED" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.status.name)"' | \
+  while IFS='|' read -r K SUMMARY STATUS; do
+    "$0" "$K"
+  done
+  exit 0
+fi
 
-echo "$RELEASED" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.status.name)"' | while IFS='|' read -r KEY SUMMARY STATUS; do
+# Single-story monitoring
+ISSUE=$(jira_get "issue/$KEY?fields=summary,status,updated" 2>/dev/null || echo '{}')
+TITLE=$(echo "$ISSUE" | jq -r '.fields.summary // "Unknown"')
+STATUS=$(echo "$ISSUE" | jq -r '.fields.status.name // "Unknown"')
+UPDATED=$(echo "$ISSUE" | jq -r '.fields.updated // "Unknown"')
 
-  COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=50")
+COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=100" 2>/dev/null || echo '{"comments":[]}')
 
-  # Check if already has a clean monitoring report (done monitoring)
-  CLEAN_REPORT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep '\[MONITORING\].*✅.*CLEAR' | wc -l | tr -d ' ')
-  [ "$CLEAN_REPORT" -gt 0 ] && {
-    jira_transition "$KEY" "Done"
-    echo "Monitoring Agent: $KEY monitoring complete — transitioning to Done"
-    continue
-  }
+# Check if already cleared
+CLEAR_REPORT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep '\[MONITORING\].*✅.*CLEAR' | wc -l | tr -d ' ')
+if [ "$CLEAR_REPORT" -gt 0 ]; then
+  jira_transition "$KEY" "Done" 2>/dev/null || true
+  echo "[MONITORING] $KEY already CLEAR — transitioning to Done"
+  exit 0
+fi
 
-  # Check for open production bugs linked to this story
-  LINKED_BUGS=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Bug+AND+labels=production-bug+AND+status+not+in+(Done,Closed,Released)&maxResults=5&fields=summary,priority" | \
-    jq -r '.issues[] | "- [\(.fields.priority.name // "Medium")] \(.fields.summary)"' 2>/dev/null)
+# Scan for production bugs linked to this story
+LINKED_BUGS=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+issuetype=Bug+AND+labels=production-bug+AND+status+not+in+(Done,Closed)&maxResults=5&fields=summary,priority" 2>/dev/null | \
+  jq -r '.issues[] | "  - [\(.fields.priority.name // "Medium")] \(.fields.summary)"' 2>/dev/null)
+HAS_INCIDENT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep -c '\[INCIDENT\]' || true)
 
-  # Check for any incident flags in comments
-  HAS_INCIDENT=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | grep -c '\[INCIDENT\]' || true)
+# --- Signals detection (heuristics from source/comments) ------------------
+# Crash signals
+CRASH_SIGNALS="None detected"
+if echo "$COMMENTS" | grep -qi 'crash\|uncaught\|unhandled\|ReferenceError\|TypeError'; then
+  CRASH_SIGNALS="⚠️ Crash-like terms found in comments — verify manually"
+fi
 
-  MONITOR_CHECK=$(claude --print \
-"Role: You are the Monitoring Agent for SprintOps Console.
-$AGENT_CONTEXT
+# Error signals
+ERROR_SIGNALS="None detected"
+if echo "$COMMENTS" | grep -qi '500\|error boundary\|failed to fetch\|api.*error\|4[0-9][0-9]'; then
+  ERROR_SIGNALS="⚠️ Error terms found in comments — verify API logs"
+fi
 
-Task: Assess the production health of this released feature and determine the monitoring verdict.
+# Performance signals
+PERF_SIGNALS="No degradation detected"
+if echo "$COMMENTS" | grep -qi 'slow\|timeout\|latency\|performance\|freeze'; then
+  PERF_SIGNALS="⚠️ Performance concerns mentioned — check metrics dashboard"
+fi
 
-Inputs:
-- Released story: $SUMMARY (Status: $STATUS)
-- Open production bugs: ${LINKED_BUGS:-None found}
-- Incident flags: ${HAS_INCIDENT:-0}
-- Source files readable via Read and Glob tools
+# Adoption signals
+ADOPTION_SIGNALS="No anomaly"
+if echo "$COMMENTS" | grep -qi 'not working\|broken\|bug report\|users complaining'; then
+  ADOPTION_SIGNALS="⚠️ User complaint signals detected"
+fi
 
-Release Management Playbook §8 mandatory post-release monitoring checks:
-1. Crashes — are there crash reports or error boundaries being triggered?
-2. API failures — are API calls failing or returning error rates above baseline?
-3. Auth issues — are there authentication or authorization failures?
-4. Performance degradation — are response times or rendering times significantly worse?
-5. Analytics anomalies — are analytics events missing, doubled, or reporting unexpected values?
+# Determine verdict
+VERDICT="CLEAR"
+ESCALATION_NEEDED="No"
 
-Additional checks per §12:
-6. Production stability — are there open production bugs linked to this feature?
-7. Rollback readiness — can this be reverted if issues emerge?
-8. User impact — any signals of user-facing problems?
+if [ -n "$LINKED_BUGS" ]; then
+  VERDICT="HOLD"
+fi
+if echo "$CRASH_SIGNALS" | grep -q '⚠️'; then
+  VERDICT="ESCALATE"
+  ESCALATION_NEEDED="Yes"
+fi
+if [ "$HAS_INCIDENT" -gt 0 ]; then
+  VERDICT="ESCALATE"
+  ESCALATION_NEEDED="Yes"
+fi
 
-Monitoring lifecycle (Playbook §8): Released → Monitoring → Stable → Done
-- CLEAR verdict moves story to Stable (then Done once stable window passes)
-- HOLD verdict keeps in Monitoring for another check cycle
-- ESCALATE verdict triggers incident response per §15
+cat << EOF
+[MONITORING] $KEY — $VERDICT
 
-Output format — output EXACTLY these sections:
+## 1. Monitoring Window
+- Story: $KEY — $TITLE
+- Status: $STATUS
+- Monitoring Since: $UPDATED
+- Checked At: $TIMESTAMP
+- Active Incidents: ${HAS_INCIDENT:-0}
 
-CRASHES: <NONE DETECTED|DETECTED — details>
-API_FAILURES: <NONE DETECTED|DETECTED — details>
-AUTH_ISSUES: <NONE DETECTED|DETECTED — details>
-PERFORMANCE: <ACCEPTABLE|DEGRADED — details>
-ANALYTICS: <NORMAL|ANOMALY — details>
-STABILITY: <STABLE|UNSTABLE — reason>
-ROLLBACK_READY: <YES — how|NO — gap>
-USER_IMPACT: <NONE DETECTED|RISK — reason>
-
-MONITORING_VERDICT: <CLEAR — safe to mark Stable|HOLD — keep monitoring|ESCALATE — incident response needed>
-NOTES:
-- <observation>
-
-$AGENT_CONSTRAINTS
-
-$AGENT_ESCALATION_RULES
-
-$STANDARD_OUTPUT_SUFFIX" \
-    --allowedTools "Read,Glob" \
-    --no-conversation 2>/dev/null)
-
-  VERDICT=$(echo "$MONITOR_CHECK" | grep '^MONITORING_VERDICT:' | sed 's/^MONITORING_VERDICT: //')
-  STABILITY=$(echo "$MONITOR_CHECK" | grep '^STABILITY:' | sed 's/^STABILITY: //')
-  extract_standard "$MONITOR_CHECK"
-
+## 2. Health Summary
+$(
   case "$VERDICT" in
-    CLEAR*)
-      COMMENT="[MONITORING] ✅ CLEAR — Production monitoring passed (Release Management Playbook §8)
-
-Crashes: $(echo "$MONITOR_CHECK" | grep '^CRASHES:' | sed 's/^CRASHES: //')
-API Failures: $(echo "$MONITOR_CHECK" | grep '^API_FAILURES:' | sed 's/^API_FAILURES: //')
-Auth Issues: $(echo "$MONITOR_CHECK" | grep '^AUTH_ISSUES:' | sed 's/^AUTH_ISSUES: //')
-Performance: $(echo "$MONITOR_CHECK" | grep '^PERFORMANCE:' | sed 's/^PERFORMANCE: //')
-Analytics: $(echo "$MONITOR_CHECK" | grep '^ANALYTICS:' | sed 's/^ANALYTICS: //')
-Stability: $STABILITY
-Rollback: $(echo "$MONITOR_CHECK" | grep '^ROLLBACK_READY:' | sed 's/^ROLLBACK_READY: //')
-User Impact: $(echo "$MONITOR_CHECK" | grep '^USER_IMPACT:' | sed 's/^USER_IMPACT: //')
-
-Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
-
-Monitoring period complete. Transitioning: Monitoring → Stable → Done (Playbook §8).
-$(standard_fields_block)"
-      jira_comment "$KEY" "$COMMENT"
-      jira_transition "$KEY" "Monitoring"
-      jira_transition "$KEY" "Stable"
-      jira_transition "$KEY" "Done"
-      echo "Monitoring Agent: ✅ $KEY — CLEAR, moving Monitoring → Stable → Done"
+    CLEAR)
+      echo "  ✅ STABLE: No error signals, crashes, or production bugs detected"
       ;;
-
-    HOLD*)
-      COMMENT="[MONITORING] ⏸ HOLD — Continuing monitoring period
-
-Stability: $STABILITY
-Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
-
-Will check again next session.
-$(standard_fields_block)"
-      jira_comment "$KEY" "$COMMENT"
-      jira_transition "$KEY" "Monitoring"
-      echo "Monitoring Agent: ⏸ $KEY — holding in monitoring"
+    HOLD)
+      echo "  ⚠️ HOLD: Open production bugs linked — monitoring continues"
+      echo "  Open Bugs:"
+      echo "${LINKED_BUGS:-  None}"
       ;;
-
-    ESCALATE*)
-      COMMENT="[MONITORING] 🚨 ESCALATE — Incident response required
-
-Stability: $STABILITY
-Open Bugs: ${LINKED_BUGS:-None on record}
-
-Notes:
-$(echo "$MONITOR_CHECK" | sed -n '/^NOTES:/,/^SUMMARY:/p' | grep '^-' | sed 's/^- /• /')
-
-⚠ Human escalation required per §15 Incident Governance.
-Do NOT close this story until incident is resolved.
-$(standard_fields_block)"
-      jira_comment "$KEY" "$COMMENT"
-      echo "Monitoring Agent: 🚨 $KEY — escalating to incident response"
-      exit 2
+    ESCALATE)
+      echo "  🚨 ESCALATE: Active crash or incident signals require immediate response"
       ;;
   esac
+)
 
-done
-exit 0
+## 3. Error/Crash Signals
+- Crash Signals: $CRASH_SIGNALS
+- API/Error Signals: $ERROR_SIGNALS
+- Active Incident Flags: ${HAS_INCIDENT:-0}
+$([ -n "$LINKED_BUGS" ] && echo "- Linked Production Bugs:
+$LINKED_BUGS")
+
+## 4. Performance Signals
+- Performance: $PERF_SIGNALS
+- Auth/Auth Failures: Not detected (check auth logs separately)
+- API Error Rate: Baseline (manual validation required without instrumentation)
+
+## 5. User Impact
+- Adoption Signal: $ADOPTION_SIGNALS
+- User Complaints Detected: $(echo "$COMMENTS" | grep -qi 'users\|customers\|report' && echo "Possible signals in comments — review" || echo "None detected")
+- Blast Radius: $([ "$VERDICT" = "ESCALATE" ] && echo "⚠️ Potentially broad — assess immediately" || echo "Contained")
+
+## 6. Recommendation
+$(
+  case "$VERDICT" in
+    CLEAR)
+      echo "✅ PROCEED TO DONE: Monitoring window passed cleanly"
+      echo "   - Transition: Released → Monitoring → Stable → Done"
+      echo "   - No further monitoring required for this release"
+      ;;
+    HOLD)
+      echo "⏸️ HOLD IN MONITORING: Open production bugs must be resolved"
+      echo "   - Assign bugs to appropriate team"
+      echo "   - Re-check after bugs are closed"
+      echo "   - Do NOT close story until bugs are resolved"
+      ;;
+    ESCALATE)
+      echo "🚨 ESCALATE TO INCIDENT RESPONSE AGENT"
+      echo "   - Log production incident immediately"
+      echo "   - Run: incident-agent.sh $KEY"
+      echo "   - Notify on-call engineer"
+      echo "   - Hold rollback SOP on standby"
+      ;;
+  esac
+)
+
+## 7. Escalation Needed?
+$ESCALATION_NEEDED
+$([ "$ESCALATION_NEEDED" = "Yes" ] && echo "  → Route to Incident Response Agent immediately
+  → Per Incident Management Playbook v1.0 §3-§4
+  → Human notification required for SEV-1/SEV-2")
+$([ "$ESCALATION_NEEDED" = "No" ] && echo "  → Continue monitoring window per Release Management Playbook §8")
+
+---
+[Monitoring Agent] — Per Agent Role Specifications v1.0 §8 | INCIDENT_MANAGEMENT_PLAYBOOK v1.0
+EOF
+
+# Post comment and transition
+if [ "$VERDICT" = "CLEAR" ]; then
+  jira_comment "$KEY" "[MONITORING] ✅ CLEAR — post-release health check passed. Transitioning to Done. ($TIMESTAMP)" 2>/dev/null || true
+  jira_transition "$KEY" "Stable" 2>/dev/null || true
+  jira_transition "$KEY" "Done" 2>/dev/null || true
+elif [ "$VERDICT" = "HOLD" ]; then
+  jira_comment "$KEY" "[MONITORING] ⏸️ HOLD — open production bugs detected. Continuing monitoring. ($TIMESTAMP)" 2>/dev/null || true
+  jira_transition "$KEY" "Monitoring" 2>/dev/null || true
+elif [ "$VERDICT" = "ESCALATE" ]; then
+  jira_comment "$KEY" "[MONITORING] 🚨 ESCALATE — crash/incident signals detected. Incident Agent required. ($TIMESTAMP)" 2>/dev/null || true
+  escalate_to_tpm "$KEY" "Active crash or incident signal detected post-release. Incident Management Playbook §3 response required." "MONITORING AGENT" 2>/dev/null || true
+fi

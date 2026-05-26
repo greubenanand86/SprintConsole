@@ -1,164 +1,105 @@
 #!/usr/bin/env bash
-# TPM Agent — Agent Interaction Protocols v1.0
-# Escalation coordinator per protocol escalation rules:
-# - Agents disagree (conflicting verdicts on same story)
-# - Scope changes detected
-# - Delivery risk increases (repeated QA failures, stuck stories)
-# - QA blocks release
-# - Security/legal concerns appear
-# - Architecture conflicts arise
-#
-# Conflict Resolution Order (§4):
-# 1. Security/legal  2. Stability  3. UX  4. Product value  5. Maintainability  6. Delivery speed
+
+# TPM Agent — Technical Program Manager
+# Mission: Coordinate agents, translate technical risk, maintain advisory-first governance
+# Governs: Agent Role Specifications v1.0 §1, Governance Clarifications §2, TIER_1_AGENT_PROMPTS.md §1
+# Authority: Recommend (not approve) production releases; escalate conflicts; coordinate agents
+# Advisory-first model: Agents recommend; humans execute; no autonomous workflow movement
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jira.sh"
 
-# Query all recently updated stories for escalation signals
-RECENT=$(jira_get "search?jql=project=$JIRA_PROJECT+AND+updated>=-2h+ORDER+BY+updated+DESC&maxResults=30&fields=summary,status,updated")
-COUNT=$(echo "$RECENT" | jq '.issues | length' 2>/dev/null)
-COUNT=${COUNT:-0}
+# Read input (Jira issue context passed on stdin)
+INPUT=$(cat)
+JIRA_KEY=$(echo "$INPUT" | jq -r '.key // .issue_key // ""' 2>/dev/null || echo "")
+STORY_STATUS=$(echo "$INPUT" | jq -r '.fields.status.name // ""' 2>/dev/null || echo "")
+STORY_SUMMARY=$(echo "$INPUT" | jq -r '.fields.summary // ""' 2>/dev/null || echo "")
 
-[ "$COUNT" -eq 0 ] && exit 0
+[ -z "$JIRA_KEY" ] && exit 0
 
-echo "TPM Agent: Scanning $COUNT recently updated stories for escalation triggers"
+# Fetch agent verdicts from Jira comments
+COMMENTS=$(jira_get "issue/$JIRA_KEY/comments?maxResults=100" 2>/dev/null || echo '{"comments":[]}')
+ALL_COMMENTS=$(echo "$COMMENTS" | jq -r '.comments[]?.body // ""' 2>/dev/null | tr '\n' '|')
 
-echo "$RECENT" | jq -r '.issues[] | "\(.key)|\(.fields.summary)|\(.fields.status.name)"' | \
-while IFS='|' read -r KEY SUMMARY STATUS; do
+# Parse agent verdicts (Green/Yellow/Red, Pass/Fail, etc.)
+SECURITY_VERDICT=$(echo "$ALL_COMMENTS" | grep -o '\[SECURITY[^]]*\]' | tail -1 | grep -o 'PASS\|FAIL\|BLOCKED\|REVIEW' | head -1 || echo "PENDING")
+QA_VERDICT=$(echo "$ALL_COMMENTS" | grep -o '\[QA LEAD[^]]*\]' | tail -1 | grep -o 'PASS\|FAIL\|BLOCKED' | head -1 || echo "PENDING")
+RELEASE_RISK=$(echo "$ALL_COMMENTS" | grep -o '\[RELEASE RISK[^]]*\]' | tail -1 | grep -o 'Green\|Yellow\|Red' | head -1 || echo "PENDING")
+ARCHITECTURE=$(echo "$ALL_COMMENTS" | grep -o '\[ARCHITECT[^]]*\]' | tail -1 | grep -o 'PASS\|FAIL\|BLOCKED' | head -1 || echo "PENDING")
+UX_VERDICT=$(echo "$ALL_COMMENTS" | grep -o '\[UX AGENT[^]]*\]' | tail -1 | grep -o 'PASS\|FAIL\|BLOCKED' | head -1 || echo "PENDING")
+PM_VERDICT=$(echo "$ALL_COMMENTS" | grep -o '\[PRODUCT MANAGER[^]]*\]' | tail -1 | grep -o 'PASS\|FAIL\|BLOCKED' | head -1 || echo "PENDING")
 
-  COMMENTS=$(jira_get "issue/$KEY/comments?maxResults=50")
-  ALL_TEXTS=$(echo "$COMMENTS" | jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null)
+# Identify blockers (Decision Hierarchy: Security > Stability > UX > Product > Maintainability > Speed)
+BLOCKERS=()
+RISKS=()
 
-  # ── Skip if TPM already handled this story ───────────────────────────────
-  TPM_EXISTS=$(echo "$ALL_TEXTS" | grep -c '\[TPM AGENT\]' || true)
-  [ "$TPM_EXISTS" -gt 0 ] && continue
+[ "$SECURITY_VERDICT" = "BLOCKED" ] && BLOCKERS+=("Security Agent") && RISKS+=("Security concern detected")
+[ "$QA_VERDICT" = "BLOCKED" ] && BLOCKERS+=("QA Lead Agent") && RISKS+=("Acceptance criteria not met")
+[ "$RELEASE_RISK" = "Red" ] && BLOCKERS+=("Release Risk Agent") && RISKS+=("High-risk release detected")
+[ "$ARCHITECTURE" = "BLOCKED" ] && BLOCKERS+=("Architecture Agent") && RISKS+=("Architectural concerns")
+[ "$PM_VERDICT" = "BLOCKED" ] && BLOCKERS+=("Product Manager Agent") && RISKS+=("Product value not validated")
 
-  # ── Detect escalation triggers ───────────────────────────────────────────
-  ESCALATION_SIGNALS=""
+[ "$RELEASE_RISK" = "Yellow" ] && RISKS+=("Staged rollout recommended")
 
-  # Direct escalation flag from any agent
-  DIRECT_ESCALATE=$(echo "$ALL_TEXTS" | grep '\[ESCALATE → TPM\]' | head -3)
-  [ -n "$DIRECT_ESCALATE" ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-DIRECT: $DIRECT_ESCALATE"
+# Determine recommendation based on Decision Hierarchy
+RECOMMENDATION="PROCEED"
+if [ ${#BLOCKERS[@]} -gt 0 ]; then
+  RECOMMENDATION="BLOCKED"
+elif [ "$RELEASE_RISK" = "Yellow" ]; then
+  RECOMMENDATION="PROCEED_WITH_CAUTION"
+fi
 
-  # QA failure count > 2 = delivery risk
-  QA_FAIL_COUNT=$(echo "$ALL_TEXTS" | grep -c '\[QA LEAD\].*❌' || true)
-  [ "$QA_FAIL_COUNT" -ge 2 ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-DELIVERY_RISK: QA failed $QA_FAIL_COUNT times — story stuck in QA loop"
+# Check if this is a production release story
+IS_RELEASE=$(echo "$STORY_STATUS" | grep -i "Ready for Release\|Released" | wc -l)
+HUMAN_APPROVAL_NEEDED="No"
+if [ "$IS_RELEASE" -gt 0 ] && [ "$RECOMMENDATION" != "BLOCKED" ]; then
+  HUMAN_APPROVAL_NEEDED="Yes"
+fi
 
-  # Security HIGH risk flag
-  SEC_HIGH=$(echo "$ALL_TEXTS" | grep '\[SECURITY\].*HIGH\|HIGH.*Risk' | head -1)
-  [ -n "$SEC_HIGH" ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-SECURITY_CONCERN: $SEC_HIGH"
+# Generate TPM structured output
+OUTPUT="[TPM AGENT]
 
-  # Monitoring escalate signal
-  MON_ESCALATE=$(echo "$ALL_TEXTS" | grep '\[MONITORING\].*ESCALATE\|ESCALATE.*\[MONITORING\]' | head -1)
-  [ -n "$MON_ESCALATE" ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-INCIDENT_ESCALATION: $MON_ESCALATE"
+## Executive Summary
+$(case "$RECOMMENDATION" in
+  PROCEED) echo "✅ Ready to proceed" ;;
+  PROCEED_WITH_CAUTION) echo "⚠️ Proceed with staged rollout" ;;
+  BLOCKED) echo "🛑 Blocked — escalation required" ;;
+esac)
 
-  # PA rejection + prior QA pass = agent disagreement
-  PA_REJECT=$(echo "$ALL_TEXTS" | grep '\[PRODUCT ACCEPTANCE\].*❌' | head -1)
-  QA_PASS=$(echo "$ALL_TEXTS" | grep '\[QA LEAD\].*✅' | head -1)
-  [ -n "$PA_REJECT" ] && [ -n "$QA_PASS" ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-AGENT_DISAGREEMENT: QA approved but Product Acceptance rejected — conflict to resolve"
+## Current Status
+- Security: $SECURITY_VERDICT
+- QA: $QA_VERDICT
+- Release Risk: $RELEASE_RISK
+- Architecture: $ARCHITECTURE
+- UX: $UX_VERDICT
+- Product Value: $PM_VERDICT
 
-  # Deploy blocked + RED risk = release governance conflict
-  DEPLOY_BLOCK=$(echo "$ALL_TEXTS" | grep '\[DEPLOY SPECIALIST\].*Blocked\|Blocked.*\[DEPLOY SPECIALIST\]' | head -1)
-  [ -n "$DEPLOY_BLOCK" ] && ESCALATION_SIGNALS="$ESCALATION_SIGNALS
-RELEASE_BLOCKED: $DEPLOY_BLOCK"
+## Risks
+$([ ${#RISKS[@]} -gt 0 ] && printf "- %s\n" "${RISKS[@]}" || echo "None identified")
 
-  [ -z "$ESCALATION_SIGNALS" ] && continue
+## Blockers
+$([ ${#BLOCKERS[@]} -gt 0 ] && printf "- %s\n" "${BLOCKERS[@]}" || echo "None")
 
-  echo "TPM Agent: Escalation signals found for $KEY — analyzing..."
+## Agent Inputs Needed
+$([ "$SECURITY_VERDICT" = "PENDING" ] && echo "- Security Agent review")
+$([ "$QA_VERDICT" = "PENDING" ] && echo "- QA Lead validation")
+$([ "$RELEASE_RISK" = "PENDING" ] && echo "- Release Risk assessment")
+$([ "$ARCHITECTURE" = "PENDING" ] && echo "- Architecture review")
 
-  # ── Claude applies conflict resolution order ─────────────────────────────
-  RESOLUTION=$(claude --print \
-"Role: You are the TPM Agent for SprintOps Console — escalation coordinator and conflict resolver.
-$AGENT_CONTEXT
+## Recommended Action
+$(case "$RECOMMENDATION" in
+  PROCEED) echo "Release ready. Proceed to production deployment with human sign-off." ;;
+  PROCEED_WITH_CAUTION) echo "Release with staged rollout (Release Risk Agent recommended). Coordinate phased deployment with Deploy Agent." ;;
+  BLOCKED) echo "Cannot proceed. Resolve blocking agent concerns before release consideration." ;;
+esac)
 
-Task: Analyze the escalation signals for this story, apply the Conflict Resolution Order, and produce a clear recommended action.
+## Human Approval Needed?
+$HUMAN_APPROVAL_NEEDED
+$([ "$HUMAN_APPROVAL_NEEDED" = "Yes" ] && echo "(Production deployment requires human sign-off per Governance Clarifications §I)")"
 
-Inputs:
-- Story: $SUMMARY ($KEY)
-- Current Status: $STATUS
-- Escalation signals detected:
-$ESCALATION_SIGNALS
-- All prior agent activity:
-$(echo "$ALL_TEXTS" | grep '\[ARCHITECT\]\|\[QA LEAD\]\|\[SECURITY\]\|\[UX DESIGNER\]\|\[PRODUCT ACCEPTANCE\]\|\[RELEASE RISK\]\|\[DEPLOY SPECIALIST\]\|\[MONITORING\]\|\[INCIDENT\]' | head -20)
-- Source files readable via Read tool
+echo "$OUTPUT"
 
-Conflict Resolution Order (Agent Interaction Protocols §4):
-1. Security / legal — highest priority; blocks everything
-2. Stability — production safety
-3. User experience — UX quality
-4. Product value — feature correctness
-5. Maintainability — code health
-6. Delivery speed — lowest priority
-
-Steps:
-1. Identify the primary escalation type
-2. Identify conflicting positions
-3. Apply the resolution order to determine the correct path
-4. State whether Human Approval is required (YES if security/legal/strategic scope change)
-5. State the recommended resolution with clear rationale
-
-Output format — output EXACTLY these sections:
-
-ESCALATION_TYPE: <agents disagree|delivery risk|QA block|security concern|architecture conflict|release blocked>
-CONFLICTING_POSITIONS:
-- <position 1 from which agent>
-- <position 2 from which agent>
-RESOLUTION_ORDER_APPLIED: <which priority level wins and why>
-RECOMMENDED_ACTION: <what should happen next>
-HUMAN_APPROVAL_REQUIRED: <YES — reason|NO>
-CONFIDENCE: <HIGH|MEDIUM|LOW>
-
-$AGENT_CONSTRAINTS
-
-$AGENT_ESCALATION_RULES
-
-$STANDARD_OUTPUT_SUFFIX
-
-$NONTECHNICAL_SUMMARY_REQ" \
-    --allowedTools "Read" \
-    --no-conversation 2>/dev/null)
-
-  ESCALATION_TYPE=$(echo "$RESOLUTION" | grep '^ESCALATION_TYPE:' | sed 's/^ESCALATION_TYPE: //')
-  RECOMMENDED=$(echo "$RESOLUTION" | grep '^RECOMMENDED_ACTION:' | sed 's/^RECOMMENDED_ACTION: //')
-  HUMAN_REQ=$(echo "$RESOLUTION" | grep '^HUMAN_APPROVAL_REQUIRED:' | grep -i 'YES' | wc -l | tr -d ' ')
-  CONFIDENCE=$(echo "$RESOLUTION" | grep '^CONFIDENCE:' | sed 's/^CONFIDENCE: //')
-  extract_standard "$RESOLUTION"
-  NON_TECH=$(echo "$RESOLUTION" | sed -n '/^NON_TECHNICAL_SUMMARY:/,/^SUMMARY:/p' | head -8)
-
-  COMMENT="[TPM AGENT] ⚡ Escalation Review — $ESCALATION_TYPE
-
-Story: $SUMMARY ($KEY)
-Status: $STATUS
-
-Escalation Signals:
-$(echo "$ESCALATION_SIGNALS" | sed 's/^/• /')
-
-Conflicting Positions:
-$(echo "$RESOLUTION" | sed -n '/^CONFLICTING_POSITIONS:/,/^RESOLUTION_ORDER_APPLIED:/p' | grep '^-' | sed 's/^- /• /')
-
-Resolution Order Applied (§4):
-$(echo "$RESOLUTION" | grep '^RESOLUTION_ORDER_APPLIED:' | sed 's/^RESOLUTION_ORDER_APPLIED: /→ /')
-
-Recommended Action:
-→ $RECOMMENDED
-
-Confidence: $CONFIDENCE
-
-$([ "$HUMAN_REQ" -gt 0 ] && echo "🚨 HUMAN APPROVAL REQUIRED
-$(echo "$RESOLUTION" | grep '^HUMAN_APPROVAL_REQUIRED:' | sed 's/^HUMAN_APPROVAL_REQUIRED: YES — /Reason: /') ")
-${NON_TECH:+
-Non-Technical Summary:
-$NON_TECH}
-$(standard_fields_block)"
-
-  jira_comment "$KEY" "$COMMENT"
-  echo "TPM Agent: ⚡ $KEY — $ESCALATION_TYPE resolved [Confidence: $CONFIDENCE]"
-
-done
+# Write Jira comment
+jira_comment "$JIRA_KEY" "$OUTPUT" 2>/dev/null || echo "$OUTPUT"
 
 exit 0
