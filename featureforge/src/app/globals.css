@@ -1,0 +1,126 @@
+@layer tailwind-base, primereact, tailwind-utilities;
+
+@layer tailwind-base {
+  @tailwind base;
+}
+
+@layer tailwind-utilities {
+  @tailwind components;
+  @tailwind utilities;
+}
+
+/* ─── Design tokens ─────────────────────────────────── */
+:root {
+  --ff-bg:             #f8f9fc;
+  --ff-surface:        #ffffff;
+  --ff-surface-alt:    #f1f3f8;
+  --ff-border:         #e2e8f0;
+  --ff-text:           #0f172a;
+  --ff-text-muted:     #64748b;
+  --ff-brand:          #6366f1;
+  --ff-brand-dark:     #4f46e5;
+  --ff-brand-light:    #e0e7ff;
+  --ff-success:        #22c55e;
+  --ff-warning:        #f59e0b;
+  --ff-danger:         #ef4444;
+  --ff-sidebar-width:  240px;
+}
+
+.dark {
+  --ff-bg:             #0d1117;
+  --ff-surface:        #161b22;
+  --ff-surface-alt:    #1c2128;
+  --ff-border:         #30363d;
+  --ff-text:           #e6edf3;
+  --ff-text-muted:     #8b949e;
+  --ff-brand:          #818cf8;
+  --ff-brand-dark:     #6366f1;
+  --ff-brand-light:    #1e1b4b;
+}
+
+/* ─── Reset & base ──────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--ff-bg);
+  color: var(--ff-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--ff-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ff-text-muted); }
+
+/* ─── PrimeReact overrides ──────────────────────────── */
+.p-component {
+  font-family: inherit;
+}
+
+/* ─── Markdown output ───────────────────────────────── */
+.ff-output h1 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
+.ff-output h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: var(--ff-brand); }
+.ff-output h3 { font-size: 1.05rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+.ff-output p  { margin: 0.5rem 0; line-height: 1.7; }
+.ff-output ul, .ff-output ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+.ff-output li { margin: 0.3rem 0; line-height: 1.6; }
+.ff-output table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+.ff-output th {
+  background: var(--ff-surface-alt);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid var(--ff-border);
+}
+.ff-output td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--ff-border);
+  vertical-align: top;
+}
+.ff-output code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  background: var(--ff-surface-alt);
+  border: 1px solid var(--ff-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.ff-output pre {
+  background: var(--ff-surface-alt);
+  border: 1px solid var(--ff-border);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.ff-output pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.ff-output hr {
+  border: none;
+  border-top: 1px solid var(--ff-border);
+  margin: 1.5rem 0;
+}
+.ff-output blockquote {
+  border-left: 3px solid var(--ff-brand);
+  padding-left: 1rem;
+  color: var(--ff-text-muted);
+  margin: 0.75rem 0;
+}
