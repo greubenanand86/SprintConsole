@@ -1,37 +1,31 @@
 # Roadmap — {Product Name}
 
-> Roadmap items are aspirational. Nothing here is committed until a story is Refined and in a sprint. See Jira `{JIRA_PREFIX}` board for committed work.
+> Aspirational only. Nothing is committed until a story is Refined and scheduled. See Jira `{JIRA_PREFIX}` for committed work.
 
-## Horizon 1 — Now (current sprint + next)
+## Now — current sprint + next
 
-| Item | Type | Driver |
+| Item | Type | Why now |
 |---|---|---|
-| {Item} | Feature / Tech Debt / Bug / Spike | {Requestor or governance doc} |
+| {Item} | Feature / Debt / Bug / Spike | {Driver} |
 
-## Horizon 2 — Next (1–3 sprints out)
+## Next — 1–3 sprints out
 
-| Item | Type | Driver |
+| Item | Type | Why next |
 |---|---|---|
-| {Item} | Feature / Tech Debt / Bug / Spike | {Requestor or governance doc} |
+| {Item} | Feature / Debt / Bug / Spike | {Driver} |
 
-## Horizon 3 — Later (4–8 sprints out)
+## Later — 4+ sprints out
 
-| Item | Type | Driver |
+| Item | Type | Notes |
 |---|---|---|
-| {Item} | Feature / Tech Debt / Bug / Spike | {Requestor or governance doc} |
+| {Item} | Feature / Debt / Bug / Spike | {Driver} |
 
-## Graduated (shipped)
+## Shipped
 
-| Item | Release | Notes |
+| Item | Version | Notes |
 |---|---|---|
-| {Item} | v{semver} | {Short note} |
+| {Item} | v{x.y.z} | {Short note} |
 
-## Constraints and dependencies
+## Not on this roadmap
 
-- {Blocker or prerequisite for Horizon 2+}
-- {Cross-product dependency}
-- {Governance gate that applies}
-
-## What is not on this roadmap
-
-- {Explicitly out of scope items to prevent scope creep}
+- {Scope boundaries — what will not be built here}

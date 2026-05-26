@@ -1,34 +1,19 @@
 # Release History — {Product Name}
 
-> One entry per release. Most recent first. Automated release notes from the Release Risk Agent go here when `JIRA_WRITE_ENABLED=true`.
+Most recent first.
 
 ---
 
-## Release entry format
-
-```
-## v{semver} — {title} ({date})
+## v{x.y.z} — {Title} ({YYYY-MM-DD})
 
 **Type**: Feature / Bugfix / Hotfix / Patch
-**Status**: Released | Monitoring | Stable | Rolled Back
+**Status**: Released / Monitoring / Stable / Rolled Back
 
-**Summary**: One paragraph.
+**What shipped**:
+- {Item}
 
-**Shipped**:
-- Item
-- Item
-
-**Jira stories**: {PREFIX}-NNN, {PREFIX}-NNN
-
-**Breaking changes**: None / list them
-
-**Rollback plan**: {procedure or "See release-management-playbook.md §rollback"}
-
-**Monitoring window**: {start} → {end}
-
-**Incidents**: None / link to incident postmortem in product-memory/
-```
-
----
-
-{Add release entries above this line, most recent first.}
+**Jira stories**: {PREFIX}-NNN
+**Breaking changes**: None / {list}
+**Rollback**: {procedure or N/A}
+**Monitoring window**: {start} → {end or "closed"}
+**Incidents**: None / see `product-memory/incidents/`
