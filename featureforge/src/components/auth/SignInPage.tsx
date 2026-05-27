@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faBolt, faWandMagicSparkles, faCheckCircle, faBoltLightning } from '@fortawesome/free-solid-svg-icons'
+import { faBolt, faWandMagicSparkles, faCheckCircle, faBoltLightning, faFlask } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 import ThemeToggle from '@/components/theme/ThemeToggle'
 
@@ -98,6 +98,26 @@ export default function SignInPage() {
             >
               <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 text-[#4285F4]" />
               Continue with Google
+            </button>
+
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 h-px bg-[var(--ff-border)]" />
+              <span className="text-xs text-[var(--ff-text-muted)]">or</span>
+              <div className="flex-1 h-px bg-[var(--ff-border)]" />
+            </div>
+
+            <button
+              onClick={() => signIn('demo', { callbackUrl: '/dashboard' })}
+              className="
+                w-full flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl
+                bg-[var(--ff-surface-alt)] border border-dashed border-[var(--ff-border)]
+                text-[var(--ff-text-muted)] font-semibold text-sm
+                hover:border-[var(--ff-brand)] hover:text-[var(--ff-brand)] transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-[var(--ff-brand)]
+              "
+            >
+              <FontAwesomeIcon icon={faFlask} className="w-4 h-4" />
+              Try demo — no account needed
             </button>
 
             <div className="space-y-3 pt-2 border-t border-[var(--ff-border)]">

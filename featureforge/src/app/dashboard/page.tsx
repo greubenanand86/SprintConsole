@@ -8,17 +8,18 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faWandMagicSparkles, faBoltLightning, faArrowRight,
   faFileLines, faTicket, faListCheck, faTriangleExclamation,
-  faMagnifyingGlass, faBoxOpen,
+  faMagnifyingGlass, faBoxOpen, faVial,
 } from '@fortawesome/free-solid-svg-icons'
 import { CREDIT_COSTS, GENERATION_LABELS, PLAN_LABELS } from '@/types'
 
 const QUICK_ACTIONS = [
-  { type: 'gap-check',            icon: faMagnifyingGlass,   color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-950' },
-  { type: 'prd',                  icon: faFileLines,         color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950' },
-  { type: 'tickets',              icon: faTicket,            color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950' },
-  { type: 'acceptance-criteria',  icon: faListCheck,         color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-950' },
-  { type: 'edge-cases',           icon: faTriangleExclamation, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950' },
-  { type: 'full-package',         icon: faBoxOpen,           color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-950' },
+  { type: 'gap-check',           icon: faMagnifyingGlass,     color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-950' },
+  { type: 'prd',                 icon: faFileLines,           color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950' },
+  { type: 'tickets',             icon: faTicket,              color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950' },
+  { type: 'acceptance-criteria', icon: faListCheck,           color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-950' },
+  { type: 'edge-cases',          icon: faTriangleExclamation, color: 'text-amber-500',  bg: 'bg-amber-50 dark:bg-amber-950' },
+  { type: 'qa-tests',            icon: faVial,                color: 'text-pink-500',   bg: 'bg-pink-50 dark:bg-pink-950' },
+  { type: 'full-package',        icon: faBoxOpen,             color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-950' },
 ] as const
 
 export default async function DashboardPage() {
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
               Open generator <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {QUICK_ACTIONS.map(({ type, icon, color, bg }) => (
               <Link
                 key={type}
