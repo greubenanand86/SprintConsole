@@ -1,0 +1,20 @@
+{
+  "kanban-plugin": "basic",
+  "date-format": "YYYY-MM-DD",
+  "time-format": "HH:mm",
+  "date-display-format": "YYYY-MM-DD",
+  "hide-date-in-title": false,
+  "link-date-to-daily-note": false,
+  "show-checkboxes": true,
+  "new-card-insertion-method": "prepend",
+  "new-line-trigger": "enter",
+  "hide-card-count": false,
+  "move-dates": true,
+  "tag-colors": [
+    { "tagKey": "#feature", "color": "rgba(40, 167, 69, 0.5)" },
+    { "tagKey": "#bug", "color": "rgba(220, 53, 69, 0.5)" },
+    { "tagKey": "#debt", "color": "rgba(255, 193, 7, 0.5)" },
+    { "tagKey": "#spike", "color": "rgba(0, 123, 255, 0.5)" },
+    { "tagKey": "#blocked", "color": "rgba(108, 117, 125, 0.5)" }
+  ]
+}

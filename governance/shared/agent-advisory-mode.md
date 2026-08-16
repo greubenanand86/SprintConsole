@@ -17,11 +17,11 @@ The agent's deliverable is its stdout: structured recommendations, checklists, d
 | Action | Notes |
 |---|---|
 | Recommend | Verdicts, options, risk assessments, prioritization suggestions |
-| Summarize | Sprint health, story status, blocker analysis, release readiness |
+| Summarize | Sprint health, task status, blocker analysis, release readiness |
 | Create checklists | Definition of Ready, Definition of Done, QA test plans, release gates |
 | Create draft files | Architecture notes, product memory entries, release notes, ADRs |
 | Create PRs for review | Code, documentation, governance changes — all require human merge |
-| Propose Jira updates | Story creation, status transitions, comments — printed to stdout as advisory output |
+| Propose task updates | Task creation, status moves, notes — printed to stdout as advisory output |
 
 ---
 
@@ -29,11 +29,11 @@ The agent's deliverable is its stdout: structured recommendations, checklists, d
 
 | Action | Why prohibited |
 |---|---|
-| Auto-transition Jira tickets | Status transitions change sprint state visible to the whole team — human intent required |
+| Auto-move Kanban tasks | Status changes are human intent — drag the card in Obsidian |
 | Auto-approve releases | Release approval is a human governance gate per Release Management Playbook v1.0 |
 | Auto-deploy to production | Production changes require human approval per Engineering Constitution §9 and AI Governance §3 |
 | Override governance | No agent output supersedes shared governance documents without a human-authored change |
-| Mix product context | An agent running against `SC-` tickets must not read, write, or reference another product's memory or board without explicit product context switch |
+| Mix product context | An agent running against `SC-` tasks must not read, write, or reference another product's memory or board without explicit product context switch |
 | Apply one product's decision to another | Decisions in `products/sprintconsole/product-memory/` are not portable to other products without explicit review |
 
 ---
@@ -43,21 +43,22 @@ The agent's deliverable is its stdout: structured recommendations, checklists, d
 A single flag in `.claude/hooks/jira.sh` controls all write behavior across every agent:
 
 ```bash
-JIRA_WRITE_ENABLED="${JIRA_WRITE_ENABLED:-false}"
+TASK_WRITE_ENABLED="${TASK_WRITE_ENABLED:-false}"
 ```
 
 Default is `false`. Every write function checks this flag before acting:
 
-| Function | When `JIRA_WRITE_ENABLED=false` | When `true` |
+| Function | When `TASK_WRITE_ENABLED=false` | When `true` |
 |---|---|---|
-| `jira_post()` | Returns `"{}"` — no HTTP call made | Posts to Jira REST API |
-| `jira_put()` | No-op | PUTs to Jira REST API |
-| `jira_transition()` | Prints `[ADVISORY] Recommended transition: KEY → status` | Executes the transition |
-| `jira_comment()` | Silent — stdout is the deliverable | Posts comment to Jira |
-| `escalate_to_tpm()` | Prints structured escalation block to stdout | Prints + posts to Jira |
-| `write_handoff()` | Prints handoff packet to stdout | Prints + posts to Jira |
+| `task_create()` | Prints advisory suggestion to stdout | Creates a `.md` file in `products/{id}/tasks/` |
+| `task_log()` | No-op — stdout is the deliverable | Appends note to the task file |
+| `task_move()` | Prints `[ADVISORY] Move task → column` | Advisory only (drag in Obsidian) |
+| `jira_comment()` | Alias for `task_log()` — same behaviour | Same |
+| `jira_transition()` | Alias for `task_move()` — same behaviour | Same |
+| `escalate_to_tpm()` | Prints structured escalation block to stdout | Prints + logs to task file |
+| `write_handoff()` | Prints handoff packet to stdout | Prints + logs to task file |
 
-No agent calls the Jira API directly. All writes go through these wrapper functions. Adding a new agent that bypasses the wrappers violates this governance.
+No agent calls any external API. All writes go through these wrapper functions. Adding a new agent that bypasses the wrappers violates this governance.
 
 ---
 
@@ -128,15 +129,14 @@ An agent that bypasses the write wrappers is non-compliant with this governance 
 
 ## Enabling write mode
 
-Write mode is not a phase upgrade — it is a per-run opt-in for specific, human-authorized operations.
+Write mode is a per-run opt-in for specific, human-authorized file operations. It creates task files and appends notes — it does not post to any external service.
 
 ```bash
-JIRA_WRITE_ENABLED=true .claude/hooks/pm-agent.sh SC-42
+TASK_WRITE_ENABLED=true .claude/hooks/pm-agent.sh SC-001
 ```
 
-Before enabling write mode for any agent:
-- Confirm the operation has been reviewed in advisory output first
-- Confirm human approval has been given for the specific action
-- Do not set `JIRA_WRITE_ENABLED=true` as a permanent environment variable
+Before enabling write mode:
+- Review the advisory output first to confirm the operation is correct
+- Do not set `TASK_WRITE_ENABLED=true` as a permanent environment variable
 
-Write mode does not change what an agent is allowed to do — it only allows the advisory recommendations to be executed. The governance constraints above apply regardless of flag value.
+Write mode does not change what an agent is allowed to do — it only allows advisory recommendations to be written to local markdown files. The governance constraints above apply regardless of flag value.

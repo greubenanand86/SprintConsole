@@ -1,93 +1,125 @@
 #!/usr/bin/env bash
-# Shared Jira helpers — sourced by all agent scripts
+# workspace.sh — Shared task and context library for all agents
+# (filename kept as jira.sh so existing agent scripts need no changes)
 #
-# Advisory-first: agents observe, analyze, and recommend. They do not write.
-# JIRA_WRITE_ENABLED defaults to false — all write functions print advisory
-# output to stdout instead of posting to Jira.
+# Advisory-first: agents observe, analyze, and recommend.
+# TASK_WRITE_ENABLED defaults to false — write functions print advisory output
+# to stdout instead of modifying files.
 #
-# To enable actual writes (CI, human-confirmed workflows):
-#   JIRA_WRITE_ENABLED=true source jira.sh
+# To enable actual file writes:
+#   TASK_WRITE_ENABLED=true source jira.sh
 
-JIRA_AUTH=$(echo -n "$JIRA_EMAIL:$JIRA_TOKEN" | base64)
-JIRA_WRITE_ENABLED="${JIRA_WRITE_ENABLED:-false}"
+TASK_WRITE_ENABLED="${TASK_WRITE_ENABLED:-false}"
 
-# ── Read (always enabled) ──────────────────────────────────────────────────
+_JIRA_SH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "$_JIRA_SH_DIR/../.." && pwd)"
+_PRODUCTS_DIR="$_REPO_ROOT/products"
+_REGISTRY="$_PRODUCTS_DIR/registry.json"
 
-jira_get() {
-  curl -s -H "Authorization: Basic $JIRA_AUTH" \
-       -H "Accept: application/json" \
-       "$JIRA_URL/rest/api/3/$1"
-}
+# ── Task operations ────────────────────────────────────────────────────────────
 
-# ── Write (advisory by default) ───────────────────────────────────────────
-# When JIRA_WRITE_ENABLED=false, all write calls print their intent to stdout.
-# No data is sent to Jira. Agents remain pure advisors.
+task_create() {
+  # Create a new task markdown file in the product's tasks/ directory
+  # $1 = title, $2 = type (Feature/Bug/Debt/Spike), $3 = description
+  local TITLE="$1" TYPE="${2:-Feature}" DESC="${3:-}"
 
-jira_post() {
-  if [ "${JIRA_WRITE_ENABLED}" = "true" ]; then
-    curl -s -X POST \
-         -H "Authorization: Basic $JIRA_AUTH" \
-         -H "Accept: application/json" \
-         -H "Content-Type: application/json" \
-         -d "$2" \
-         "$JIRA_URL/rest/api/3/$1"
-  else
-    # Return empty object so callers parsing with jq don't error
-    echo "{}"
-  fi
-}
+  if [ "${TASK_WRITE_ENABLED}" = "true" ]; then
+    local TASKS_DIR="$_PRODUCTS_DIR/${PRODUCT_ID:-sprintconsole}/tasks"
+    mkdir -p "$TASKS_DIR"
 
-jira_put() {
-  if [ "${JIRA_WRITE_ENABLED}" = "true" ]; then
-    curl -s -X PUT \
-         -H "Authorization: Basic $JIRA_AUTH" \
-         -H "Accept: application/json" \
-         -H "Content-Type: application/json" \
-         -d "$2" \
-         "$JIRA_URL/rest/api/3/$1"
-  fi
-}
+    local COUNT
+    COUNT=$(find "$TASKS_DIR" -name "*.md" ! -name "README.md" 2>/dev/null | wc -l)
+    local PREFIX="${TASK_PREFIX:-TSK}"
+    local ID="${PREFIX}-$(printf '%03d' $((COUNT + 1)))"
+    local SLUG
+    SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | cut -c1-40)
+    local FILE="$TASKS_DIR/${ID}-${SLUG}.md"
 
-jira_transition() {
-  # $1 = issue key, $2 = target status name
-  if [ "${JIRA_WRITE_ENABLED}" = "true" ]; then
-    local ISSUE="$1" TARGET="$2"
-    local TRANSITIONS
-    TRANSITIONS=$(jira_get "issue/$ISSUE/transitions")
-    local TID
-    TID=$(echo "$TRANSITIONS" | jq -r --arg name "$TARGET" \
-      '.transitions[] | select(.name | ascii_downcase == ($name | ascii_downcase)) | .id' | head -1)
-    if [ -n "$TID" ]; then
-      jira_post "issue/$ISSUE/transitions" "{\"transition\":{\"id\":\"$TID\"}}" > /dev/null
-      echo "Transitioned $ISSUE to $TARGET"
-    else
-      echo "Warning: transition '$TARGET' not found for $ISSUE"
+    cat > "$FILE" <<EOF
+---
+id: $ID
+product: ${PRODUCT_ID:-sprintconsole}
+status: Backlog
+type: $TYPE
+priority: P2
+created: $(date +%Y-%m-%d)
+tags: []
+---
+
+# $TITLE
+
+## Description
+$DESC
+
+## Acceptance Criteria
+- [ ]
+
+## Agent Notes
+
+EOF
+    # Add to kanban backlog
+    local KANBAN="$_PRODUCTS_DIR/${PRODUCT_ID:-sprintconsole}/kanban.md"
+    if [ -f "$KANBAN" ]; then
+      sed -i "/^## Backlog/a - [ ] [[$ID-$SLUG|$TITLE]]" "$KANBAN"
     fi
+    echo "[TASK CREATED] $ID — $FILE"
   else
-    echo "[ADVISORY] Recommended transition: ${1} → ${2}"
+    echo "[ADVISORY] Suggested new task: $TITLE (type: $TYPE)"
+    echo "           Create it in Obsidian or run with TASK_WRITE_ENABLED=true"
   fi
 }
 
-jira_comment() {
-  # $1 = issue key, $2 = comment body text
-  if [ "${JIRA_WRITE_ENABLED}" = "true" ]; then
-    local BODY
-    BODY=$(jq -n --arg text "$2" '{
-      "body": {
-        "type": "doc", "version": 1,
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": $text}]}]
-      }
-    }')
-    jira_post "issue/$1/comment" "$BODY" > /dev/null
+task_log() {
+  # Append an agent note to a task file
+  # $1 = task ID or file path, $2 = agent name, $3 = note text
+  local TASK="$1" AGENT="$2" NOTE="$3"
+
+  if [ "${TASK_WRITE_ENABLED}" = "true" ]; then
+    local FILE
+    if [ -f "$TASK" ]; then
+      FILE="$TASK"
+    else
+      FILE=$(find "$_PRODUCTS_DIR" -name "${TASK}-*.md" 2>/dev/null | head -1)
+    fi
+
+    if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+      printf '\n### [%s] %s\n%s\n' "$AGENT" "$(date +%Y-%m-%d)" "$NOTE" >> "$FILE"
+      echo "[LOGGED] Note added to $FILE"
+    else
+      echo "[WARN] Task file not found for: $TASK — note printed to stdout only"
+    fi
   fi
-  # In advisory mode: agent output to stdout is the deliverable — no comment needed
+  # In advisory mode: agent stdout is the deliverable — no file write needed
 }
 
-# ── Prompt Engineering Standards v1.0 ─────────────────────────────────────
-# Shared prompt components sourced by every agent
-# AGENT_CONTEXT = product header (per-product) + governance block (shared)
+task_move() {
+  # Recommend a status/column change on the Kanban board
+  # $1 = task ID, $2 = target column
+  echo "[ADVISORY] Move task ${1} → ${2}"
+  echo "           Drag the card in Obsidian Kanban, or run with TASK_WRITE_ENABLED=true"
+}
 
-# Default product header — overridden by load_product_context() below
+# ── Backward-compatible aliases ────────────────────────────────────────────────
+# Agent scripts that call jira_comment / jira_transition / jira_post
+# continue to work without modification.
+
+jira_comment() { task_log "$1" "Agent" "$2"; }
+jira_transition() { task_move "$1" "$2"; }
+jira_post() {
+  # Simplified: treat as task_create advisory. Agents passing JSON payloads
+  # will see an advisory recommendation instead of a Jira issue creation.
+  if [ "${TASK_WRITE_ENABLED}" = "true" ]; then
+    echo "[TASK WRITE] jira_post called — use task_create for file-based task creation"
+  else
+    echo "[ADVISORY] Task creation suggested (use task_create for Obsidian integration)"
+  fi
+  echo "{}"  # return empty JSON so jq calls in callers don't error
+}
+jira_put()  { :; }  # no-op
+jira_get()  { echo "{}"; }  # no-op — no Jira to read from
+
+# ── Prompt Engineering Standards v1.0 ─────────────────────────────────────────
+
 _DEFAULT_PRODUCT_HEADER="Context: SprintConsole — React 18, Babel standalone JSX, CSS design tokens (prototype phase)
 Core files: sprintops-app.jsx, sprintops-shared.jsx, sprintops-layout.jsx,
   sprintops-readiness.jsx, sprintops-estimation.jsx, sprintops-release.jsx,
@@ -99,17 +131,17 @@ _GOVERNANCE_CONTEXT="Target architecture (ARCHITECTURE.md — governs all struct
 - Backend: API-first, version-aware, centralized auth + validation + logging → /backend
 - Shared: business logic, design system, validation, analytics → /shared
 - All clients interact through consistent API contracts
-- Feature-based folder organization is mandatory across all clients
+- Feature-based folder organisation is mandatory across all clients
 - TypeScript is mandatory everywhere (current .jsx files are highest-priority tech debt)
 
 Technical Decision Hierarchy (ARCHITECTURE.md §15 — governs stack and structural decisions):
 1. Security  2. Stability  3. Maintainability  4. Scalability
-5. Developer productivity  6. Performance optimization  7. Architectural sophistication
+5. Developer productivity  6. Performance optimisation  7. Architectural sophistication
 
 Repository Governance v1.0 (REPOSITORY_GOVERNANCE.md — governs repo structure, branching, PRs, and merges):
 - Monorepo: /apps/web, /apps/mobile, /packages/*, /backend, /governance, /docs
 - Branches: main (production) | develop (integration) | feature/* | bugfix/* | hotfix/* | release/*
-- Every PR requires: Jira ticket, summary, what changed, screenshots if UI, test evidence, risk notes, rollback notes
+- Every PR requires: task reference, summary, what changed, screenshots if UI, test evidence, risk notes, rollback notes
 - Merge gates: CI passes + code review + QA path identified + no unresolved release blockers
 - hotfix/* branches from main and requires Release Risk review
 
@@ -130,102 +162,61 @@ API Contract Standards v1.0 (API_CONTRACT_STANDARDS.md — governs all API desig
 Release Management Playbook v1.0 (RELEASE_MANAGEMENT_PLAYBOOK.md — governs all releases):
 - Core principle: Stability > Speed. All releases must be observable, recoverable, governable.
 - Release workflow: Code Complete → Code Review → QA Validation → Product Acceptance → Release Risk Review → Human Approval → Production Release → Monitoring → Done
-- Release types: Standard Release (TPM+Human), Hotfix (TPM+Human), Mobile Beta (TPM), Production Mobile (Human), Infrastructure (TPM+Security+Human)
 - Release readiness (9 mandatory checks): QA done, Product Acceptance done, Monitoring enabled, Rollback available, Release notes prepared, Crash reporting (mobile), Analytics validated, Security review (if required), Compliance review (if required)
-- Mobile governance (mandatory): TestFlight validation, internal testing validation, metadata review, versioning consistency, crash-free beta validation, staged rollout preferred
 - Rollback governance: All releases need rollback strategy, rollback owner, rollback validation before release
-- Monitoring window: Released → Monitoring → Stable → Done with post-release checks (crashes, API failures, auth issues, performance, analytics)
-- Hotfix governance: Incident classification (P0-P3), rollback awareness, post-release validation, postmortem documentation. hotfix/* requires Release Risk review.
+- Monitoring window: Released → Monitoring → Stable → Done
 
 Environment Governance v1.0 (ENVIRONMENT_GOVERNANCE.md — governs all environments):
-- Mandatory environments: Local (mock data), Development (sanitized test data), Staging (scrubbed prod-like data), Production (real customer data)
+- Mandatory environments: Local, Development, Staging, Production
 - Deployment flow (no skipping): Local → Development → Staging → Production
-- Separate configs, secrets, and databases per environment; no shared secrets across environments
-- Staging mirrors production configuration, integrations, and monitoring; provides production confidence
-- Production access restricted; sensitive changes require TPM + Security review + human approval
-- Test data governance: never copy production data to lower environments without scrubbing; GDPR/PCI/CCPA compliance required
-- Secrets management: environment variables only (never in code); leaked secrets trigger immediate rotation
-- Monitoring mandatory in Staging + Production: logging (structured/JSON), crash reporting, real-time alerts, analytics validation
-- Post-release monitoring window (Released → Monitoring → Stable → Done) per Release Management Playbook §8
+- Separate configs, secrets, and databases per environment
+- Secrets management: environment variables only (never in source); leaked secrets trigger immediate rotation
 
 Security Baseline v1.0 (SECURITY_BASELINE.md — governs all security aspects):
-- Core principles: least privilege access, secure defaults, auditability, environment separation, secret isolation
-- Authentication: token expiration (15-60 min access, longer refresh), RBAC, secure storage (HTTP-only cookies web, Keychain/Keystore mobile)
-- API security: auth validation (401/403), input validation (whitelist, parameterized queries), rate limiting, structured errors
-- Secrets: NO secrets in source code, frontend, mobile, or logs; centralized management; rotation on schedule or immediately if leaked
-- Mobile security: Keychain/Keystore token storage, HTTPS/TLS 1.2+, certificate pinning, minimal permissions, safe deep linking
-- Dependency governance: automated scanning (npm audit/Snyk), vulnerabilities block CI, fix immediately (High/Critical same day)
-- Logging/auditability: auth events, authorization changes, sensitive operations, deployment visibility, release traceability
-- Data protection: encryption in transit (HTTPS) and at rest (sensitive data), minimal exposure, retention policies, access restrictions
-- Code review security checklist: no secrets, input validation, auth checks, parameterized queries, dependency scanning, safe errors
-- Security review triggers: auth/authz changes, data access control changes, new sensitive APIs, external integrations, critical vulnerabilities
-- Mandatory Security Agent review before production for auth changes, data control changes, sensitive APIs, integrations, vulnerabilities
-- Final principle: security is built in from start, not added at release time
+- Core principles: least privilege, secure defaults, auditability, environment separation, secret isolation
+- Authentication: token expiration, RBAC, secure storage (HTTP-only cookies web, Keychain/Keystore mobile)
+- API security: auth validation, input validation, rate limiting, structured errors
+- Secrets: NO secrets in source code, frontend, mobile, or logs
+- Mobile security: Keychain/Keystore token storage, HTTPS/TLS 1.2+, certificate pinning
+- Dependency governance: automated scanning, vulnerabilities block CI, fix High/Critical same day
+- Mandatory Security Agent review before production for auth changes, sensitive APIs, integrations
 
-Lightweight Legal & Compliance Governance v1.0 (LEGAL_COMPLIANCE_GOVERNANCE.md — risk identification, not AI attorney):
-- Legal & Compliance Agent identifies risks early; does NOT provide legal sign-off (human counsel required)
-- Data privacy: GDPR/CCPA/PIPEDA implications, consent flows, right to deletion, cross-border transfers, third-party agreements
-- Accessibility: WCAG 2.1 AA, ADA, Section 508 compliance; flag UI without accessibility review
-- Student data (if applicable): FERPA confidentiality, PPRA parental notification, marketing restrictions, third-party access
-- Survey anonymity: anonymous handling, aggregation before analysis
-- Credential data exposure: no plaintext passwords/tokens in logs, backups, error messages
-- Third-party SDK: privacy impact assessment, security posture, vendor agreements (DSA/DPA), due diligence
-- Terms/policy alignment: feature aligns with published ToS and privacy policy
-- Release blocking: blocks if consent missing, privacy-sensitive unreviewed, accessibility unresolved, SDK risk unknown, legal review pending
-- Escalates to human counsel: legal holds, DPA needs, contract review, policy updates, regulatory questions, breaches, litigation
+Lightweight Legal & Compliance Governance v1.0 (LEGAL_COMPLIANCE_GOVERNANCE.md):
+- Legal & Compliance Agent identifies risks early; does NOT provide legal sign-off
+- Data privacy: GDPR/CCPA/PIPEDA, consent flows, right to deletion, cross-border transfers
+- Accessibility: WCAG 2.1 AA minimum on all UI (VoiceOver + TalkBack for mobile)
+- Third-party SDK: privacy impact assessment, security posture, vendor agreements
+- Escalates to human counsel: legal holds, DPA needs, contract review, regulatory questions
 
-Product Memory System v1.0 (PRODUCT_MEMORY_SYSTEM.md — durable organizational intelligence):
-- Core categories: Product Decisions (features, roadmap, scope), UX Decisions (workflow, accessibility),
-  Architecture Decisions (API, state management, scaling), Technical Debt (compromises, repayment plans),
-  Release Learnings (incidents, rollbacks, monitoring), Incident Postmortems (P0-P3, root cause, prevention),
-  Customer Context (constraints, contracts, integrations), Operational Learnings (process improvements)
-- Store durable knowledge: decisions + rationale, learnings, standards, constraints
-- Do NOT store: temp conversations, brainstorming, low-confidence assumptions
-- Decision format: Decision, Context, Rationale, Alternatives, Risks, Owner, Date, Review cycle
-- Retrieval rule: agents check Product Memory before proposing major changes, cite prior decisions
-- Memory is append-only: decisions superseded (not deleted), learnings prevent recurrence
-- Quarterly review: identify stale decisions, update roadmap, emerging patterns
-- Final principle: optimize for decision continuity, not documentation volume
+Product Memory System v1.0 (PRODUCT_MEMORY_SYSTEM.md — durable organisational intelligence):
+- Categories: Product Decisions, UX Decisions, Architecture Decisions, Technical Debt,
+  Release Learnings, Incidents, Customer Context, Operational Learnings
+- Store in: products/{id}/product-memory/{category}/
+- Decision format: Decision, Context, Rationale, Alternatives, Risks, Owner, Date
+- Agents check Product Memory before proposing major changes; cite prior decisions
+- Memory is append-only: decisions superseded (not deleted)
 
-Metrics & Operational Dashboard Framework v1.0 (METRICS_DASHBOARD_FRAMEWORK.md — data-driven decisions):
-- 6 dashboard categories: TPM (velocity, predictability, incidents), Engineering (builds, deployments, lead time),
-  Product (adoption, retention, crashes), Operational (incidents, rollbacks, SLA uptime), AI Governance (PRs, overrides, compliance),
-  Custom (institution-specific metrics)
+Metrics & Operational Dashboard Framework v1.0 (METRICS_DASHBOARD_FRAMEWORK.md):
 - Core principle: metrics exist to improve decisions, not create pressure
-- Targets: predictability 80%+, deployments 1-2/week, lead time <7 days, test coverage 70%+,
-  incidents <1 P0/P1/month, QA escape <2%, crash-free 99%+, release failure <3%
-- Review cadence: weekly (sprint health, incidents), monthly (adoption, debt, effectiveness),
-  quarterly (trends, strategy, satisfaction)
-- Anti-patterns: avoid vanity metrics, individual metrics, metrics without context, metrics as punishment
-- Data rules: single source per metric, automated collection, transparent visibility, no retroactive changes
-- Use metrics to: understand capability, identify problems early, measure impact, improve processes
-- Don't use metrics to: punish teams, hide problems, justify prior decisions
+- Targets: predictability 80%+, lead time <7 days, test coverage 70%+, crash-free 99%+
 
-Incident Management Playbook v1.0 (INCIDENT_MANAGEMENT_PLAYBOOK.md — incident handling & learning):
-- Severity levels: SEV-1 (production outage/major data risk), SEV-2 (major degradation), SEV-3 (partial), SEV-4 (minor)
-- Incident workflow: Detected → Classify severity → Contain → Assess rollback → Resolve → Monitor → Postmortem → Product Memory
-- Ownership: Incident Response Agent (coordination), TPM Agent (escalation), DevOps Agent (rollback), QA Agent (validation),
-  Security Agent (assessment), Human (final decisions)
-- Rollback rules: Preferred when user trust impacted, crash spikes widespread, auth unstable, or data integrity at risk
-- Postmortem mandatory: root cause, timeline, impact, detection gap, resolution, prevention steps (system-level learning, not blame)
-- Final principle: incidents are learning opportunities for organizational improvement
+Incident Management Playbook v1.0 (INCIDENT_MANAGEMENT_PLAYBOOK.md):
+- Severity levels: SEV-1 (production outage), SEV-2 (major degradation), SEV-3 (partial), SEV-4 (minor)
+- Incident workflow: Detected → Classify → Contain → Assess rollback → Resolve → Monitor → Postmortem
+- Postmortems stored in products/{id}/product-memory/incidents/
 
 Agent Role Specifications v1.0 (AGENT_ROLE_SPECIFICATIONS.md — AI agent governance):
-- 17 agents: TPM, Product Manager, UX/Design, Architect, Delivery Coordinator, Web Frontend, React Native Mobile,
-  Backend/API, QA/Automation, Release/DevOps, Release Risk, Product Memory, Security, Legal/Compliance, Incident, Analytics, FinOps
-- Each agent has: Mission, Responsibilities, Inputs, Outputs, Authority, Escalation rules, Governance constraints, Success metrics
-- Authority rules: AI agents may escalate, reject (within scope), flag risks; may NOT deploy to production, override governance, or bypass QA/security/release
-- Escalation: Architecture violations → Architect → TPM; Security → Security Agent → TPM; Compliance → Legal → TPM; Incidents → Incident Agent → TPM; Release blockers → Any agent → TPM
-- Final decisions: Always humans (TPM, Security, Production approval)
-- Final principle: Governable systems scale better than autonomous chaos
+- 22 agents: each has Mission, Authority, Inputs, Outputs, Escalation rules
+- Authority rules: agents may escalate, reject (within scope), flag risks
+- Agents may NOT: deploy to production, override governance, bypass QA/security/release gates
+- Final decisions: always humans
 
 Governance: Engineering Constitution + Product Constitution + Architecture Blueprint v1.0
   + API Contract Standards v1.0 + Repository Governance v1.0 + Release Management Playbook v1.0
-  + Environment Governance v1.0 + Security Baseline v1.0 + Lightweight Legal & Compliance Governance v1.0
-  + Product Memory System v1.0 + Metrics & Operational Dashboard Framework v1.0 + Incident Management Playbook v1.0
-  + Agent Role Specifications v1.0 + Jira Workflow Governance v1.1 + Agent Interaction Protocols v1.0 + Prompt Engineering Standards v1.0"
+  + Environment Governance v1.0 + Security Baseline v1.0 + Legal & Compliance Governance v1.0
+  + Product Memory System v1.0 + Metrics Dashboard Framework v1.0 + Incident Management Playbook v1.0
+  + Agent Role Specifications v1.0 + Agent Interaction Protocols v1.0"
 
-# Assemble AGENT_CONTEXT from default product header + shared governance
 AGENT_CONTEXT="${_DEFAULT_PRODUCT_HEADER}
 
 ${_GOVERNANCE_CONTEXT}"
@@ -243,13 +234,12 @@ Escalate immediately and prefix output with [ESCALATE → TPM] if you detect:
 - Production risk: data loss, service disruption, security breach
 - Compliance concern: auth, PII, billing, legal, or destructive migration
 - Governance bypass: skipping QA, Product Acceptance, or release gates
-- Agent conflict: contradictory verdicts from prior agent comments
+- Agent conflict: contradictory verdicts from prior agent output
 Prefix governance violations with: [GOVERNANCE VIOLATION]"
 
-# Standard output suffix appended to every agent prompt's output format section
 STANDARD_OUTPUT_SUFFIX="Additionally output ALL of the following standard fields:
 
-SUMMARY: <one sentence — story state and what is needed; no jargon>
+SUMMARY: <one sentence — task state and what is needed; no jargon>
 RECOMMENDATION: <single most important action to take next>
 BUSINESS_IMPACT: <user or product effect in plain language>
 TIMELINE_IMPACT: <sprint or delivery effect, or 'No impact on current sprint'>
@@ -259,10 +249,9 @@ DEPENDENCIES_SUMMARY: <blocking items, or 'None'>
 NEXT_STEPS:
 - <concrete action 1>
 - <concrete action 2>
-JIRA_UPDATES: <status, label, or field changes needed in Jira>
+TASK_UPDATES: <status or field changes needed in the task file or Kanban board>
 PRODUCT_MEMORY: <YES — what decision or learning to record|NO>"
 
-# Non-technical summary block — appended to TPM-facing agent prompts only
 NONTECHNICAL_SUMMARY_REQ="For TPM and human-facing sections also output:
 NON_TECHNICAL_SUMMARY:
 - Business impact: <plain-language effect on users or product>
@@ -271,24 +260,20 @@ NON_TECHNICAL_SUMMARY:
 - Cost impact: <engineering or operational cost, or 'None'>
 - Release risk: <likelihood and severity of release issues>"
 
-# extract_standard: parse standard output fields from a Claude response
-# Usage: extract_standard "$RESPONSE" — populates STD_* variables in current shell
 extract_standard() {
   local R="$1"
-  STD_SUMMARY=$(echo "$R" | grep '^SUMMARY:' | sed 's/^SUMMARY: //')
-  STD_RECOMMENDATION=$(echo "$R" | grep '^RECOMMENDATION:' | sed 's/^RECOMMENDATION: //')
-  STD_BUSINESS=$(echo "$R" | grep '^BUSINESS_IMPACT:' | sed 's/^BUSINESS_IMPACT: //')
-  STD_TIMELINE=$(echo "$R" | grep '^TIMELINE_IMPACT:' | sed 's/^TIMELINE_IMPACT: //')
-  STD_USER=$(echo "$R" | grep '^USER_IMPACT:' | sed 's/^USER_IMPACT: //')
-  STD_RISKS=$(echo "$R" | grep '^RISKS_SUMMARY:' | sed 's/^RISKS_SUMMARY: //')
-  STD_DEPS=$(echo "$R" | grep '^DEPENDENCIES_SUMMARY:' | sed 's/^DEPENDENCIES_SUMMARY: //')
-  STD_NEXT=$(echo "$R" | sed -n '/^NEXT_STEPS:/,/^JIRA_UPDATES:/p' | grep '^-' | sed 's/^- /→ /')
-  STD_JIRA=$(echo "$R" | grep '^JIRA_UPDATES:' | sed 's/^JIRA_UPDATES: //')
-  STD_PM=$(echo "$R" | grep '^PRODUCT_MEMORY:' | sed 's/^PRODUCT_MEMORY: //')
+  STD_SUMMARY=$(echo "$R"       | grep '^SUMMARY:'              | sed 's/^SUMMARY: //')
+  STD_RECOMMENDATION=$(echo "$R"| grep '^RECOMMENDATION:'       | sed 's/^RECOMMENDATION: //')
+  STD_BUSINESS=$(echo "$R"      | grep '^BUSINESS_IMPACT:'      | sed 's/^BUSINESS_IMPACT: //')
+  STD_TIMELINE=$(echo "$R"      | grep '^TIMELINE_IMPACT:'      | sed 's/^TIMELINE_IMPACT: //')
+  STD_USER=$(echo "$R"          | grep '^USER_IMPACT:'          | sed 's/^USER_IMPACT: //')
+  STD_RISKS=$(echo "$R"         | grep '^RISKS_SUMMARY:'        | sed 's/^RISKS_SUMMARY: //')
+  STD_DEPS=$(echo "$R"          | grep '^DEPENDENCIES_SUMMARY:' | sed 's/^DEPENDENCIES_SUMMARY: //')
+  STD_NEXT=$(echo "$R"          | sed -n '/^NEXT_STEPS:/,/^TASK_UPDATES:/p' | grep '^-' | sed 's/^- /→ /')
+  STD_TASK=$(echo "$R"          | grep '^TASK_UPDATES:'         | sed 's/^TASK_UPDATES: //')
+  STD_PM=$(echo "$R"            | grep '^PRODUCT_MEMORY:'       | sed 's/^PRODUCT_MEMORY: //')
 }
 
-# standard_fields_block: format extracted STD_* variables into a Jira comment block
-# Call extract_standard first, then call this to get the formatted block
 standard_fields_block() {
   echo "---
 Summary: ${STD_SUMMARY:-Not provided}
@@ -298,27 +283,25 @@ Timeline Impact: ${STD_TIMELINE:-No impact on current sprint}
 User Impact: ${STD_USER:-Not user-visible}
 Next Steps:
 ${STD_NEXT:-→ See agent-specific actions above}
-Jira Updates: ${STD_JIRA:-None}
+Task Updates: ${STD_TASK:-None}
 Product Memory: ${STD_PM:-NO}"
 }
 
-# Agent Interaction Protocols v1.0 — Handoff Packet helpers
-# write_handoff: prints a handoff recommendation to stdout.
-# If JIRA_WRITE_ENABLED=true, also posts to Jira.
-# Args: KEY FROM_AGENT TO_STAGE OBJECTIVE AC UX_NOTES TECH_NOTES RISKS DEPS OPEN_QS EXPECTED
+# ── Handoff and escalation ─────────────────────────────────────────────────────
+
 write_handoff() {
   local KEY="$1" FROM_AGENT="$2" TO_STAGE="$3"
   local OBJECTIVE="${4:-Not specified}"
-  local AC="${5:-See story description}"
-  local UX_NOTES="${6:-See UX Agent comment}"
-  local TECH_NOTES="${7:-See Architect comment}"
+  local AC="${5:-See task description}"
+  local UX_NOTES="${6:-See UX Agent output}"
+  local TECH_NOTES="${7:-See Architect output}"
   local RISKS="${8:-None identified}"
   local DEPS="${9:-None}"
   local OPEN_QS="${10:-None}"
   local EXPECTED="${11:-Feature complete and tested}"
 
   local PACKET="[HANDOFF PACKET] $FROM_AGENT → $TO_STAGE | $(date -u '+%Y-%m-%d %H:%M UTC')
-Jira: $KEY
+Task: $KEY
 Objective: $OBJECTIVE
 Acceptance Criteria: $AC
 UX Notes: $UX_NOTES
@@ -332,19 +315,20 @@ Expected Output: $EXPECTED"
   echo "$PACKET"
   echo ""
 
-  [ "${JIRA_WRITE_ENABLED}" = "true" ] && jira_comment "$KEY" "$PACKET"
+  # If write enabled, also log to the task file
+  [ "${TASK_WRITE_ENABLED}" = "true" ] && task_log "$KEY" "Handoff" "$PACKET"
 }
 
-# read_last_handoff: reads the most recent [HANDOFF PACKET] comment for a story
 read_last_handoff() {
+  # Read the most recent handoff from a task file
   local KEY="$1"
-  jira_get "issue/$KEY/comments?maxResults=50" | \
-    jq -r '.comments[].body.content[]?.content[]?.text // ""' 2>/dev/null | \
-    grep '\[HANDOFF PACKET\]' | tail -1
+  local FILE
+  FILE=$(find "$_PRODUCTS_DIR" -name "${KEY}-*.md" 2>/dev/null | head -1)
+  if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+    grep -A20 '\[HANDOFF PACKET\]' "$FILE" | tail -20
+  fi
 }
 
-# escalate_to_tpm: advisory recommendation for TPM review
-# Always prints to stdout. If JIRA_WRITE_ENABLED=true, also posts a Jira comment.
 escalate_to_tpm() {
   local KEY="$1" REASON="$2" SOURCE_AGENT="$3"
   echo ""
@@ -353,39 +337,20 @@ escalate_to_tpm() {
   echo "  Conflict resolution order: Security > Stability > UX > Product value > Maintainability > Speed"
   echo "  Action: Human / TPM Agent should review before proceeding."
   echo ""
-  if [ "${JIRA_WRITE_ENABLED}" = "true" ]; then
-    jira_comment "$KEY" "[ESCALATE → TPM] $SOURCE_AGENT: $REASON
-Conflict Resolution Order (§4): Security > Stability > UX > Product value > Maintainability > Speed
-Action required: TPM Agent review."
-  fi
+  [ "${TASK_WRITE_ENABLED}" = "true" ] && task_log "$KEY" "ESCALATE→TPM" "$SOURCE_AGENT: $REASON"
 }
 
-# ── Multi-Product Support ───────────────────────────────────────────────────
-# load_product_context: loads per-product config from products/<id>/config.env
-# Overrides JIRA_PROJECT, AGENT_CONTEXT header, PRODUCT_MEMORY_FILE, WIP limits
-#
-# Resolution order:
-#   1. PRODUCT env var (explicit override)
-#   2. Auto-detect from Jira key prefix (e.g. "SC-123" → "sprintconsole")
-#   3. Default product from products/registry.json
-#
-# Called automatically at the bottom of this file (on every agent startup).
-# Agents that pass a key can call: load_product_context "$KEY"
-
-_JIRA_SH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_REPO_ROOT="$(cd "$_JIRA_SH_DIR/../.." && pwd)"
-_PRODUCTS_DIR="$_REPO_ROOT/products"
-_REGISTRY="$_PRODUCTS_DIR/registry.json"
+# ── Multi-product support ──────────────────────────────────────────────────────
 
 load_product_context() {
   local KEY_HINT="${1:-}"
   local PID="${PRODUCT:-}"
 
-  # Auto-detect from Jira key prefix (e.g. "SC-123" → project "SC")
+  # Auto-detect from task key prefix (e.g. "SC-123" → product with task_prefix "SC")
   if [ -z "$PID" ] && [ -n "$KEY_HINT" ] && [ -f "$_REGISTRY" ]; then
     local PREFIX="${KEY_HINT%%-*}"
     PID=$(jq -r --arg p "$PREFIX" \
-      '.products[] | select(.jira_project == $p) | .id' \
+      '.products[] | select((.task_prefix // .jira_project) == $p) | .id' \
       "$_REGISTRY" 2>/dev/null | head -1)
   fi
 
@@ -394,14 +359,17 @@ load_product_context() {
     PID=$(jq -r '.default // .products[0].id' "$_REGISTRY" 2>/dev/null | head -1)
   fi
 
-  [ -z "$PID" ] && return 0  # nothing to load; keep compiled defaults
+  [ -z "$PID" ] && return 0
 
   local CFG="$_PRODUCTS_DIR/$PID/config.env"
   [ ! -f "$CFG" ] && return 0
 
   source "$CFG"
 
-  # Rebuild AGENT_CONTEXT header with product-specific values
+  # Support both TASK_PREFIX (new) and JIRA_PROJECT (legacy alias)
+  TASK_PREFIX="${TASK_PREFIX:-${JIRA_PROJECT:-TSK}}"
+  JIRA_PROJECT="$TASK_PREFIX"  # keep alias so old agent code still works
+
   local HEADER="Context: ${PRODUCT_NAME} — ${PRODUCT_STACK}
 Core files: ${PRODUCT_CORE_FILES}"
 
@@ -409,18 +377,15 @@ Core files: ${PRODUCT_CORE_FILES}"
 
 ${_GOVERNANCE_CONTEXT}"
 
-  # Export so sub-shells (e.g. claude --print) inherit
-  export JIRA_PROJECT
+  export TASK_PREFIX JIRA_PROJECT
   export PRODUCT_ID PRODUCT_NAME
   export PRODUCT_MEMORY_FILE="$_PRODUCTS_DIR/$PID/PRODUCT_MEMORY.md"
   export PRODUCT_WIP_LIMIT="${PRODUCT_WIP_LIMIT:-6}"
   export PRODUCT_TEAM_EMAIL="${PRODUCT_TEAM_EMAIL:-}"
   export AGENT_CONTEXT
+  export TASKS_DIR="$_PRODUCTS_DIR/$PID/tasks"
 }
 
-# for_each_product: iterate every registered product, load its context, run callback
-# Usage: for_each_product <bash_function> [extra args passed to function]
-# The callback receives no positional args; it reads JIRA_PROJECT, AGENT_CONTEXT, etc.
 for_each_product() {
   local FN="$1"; shift
   if [ ! -f "$_REGISTRY" ]; then
@@ -429,7 +394,7 @@ for_each_product() {
     return
   fi
   local IDS
-  IDS=$(jq -r '.products[] | select(.status // "active" == "active") | .id' \
+  IDS=$(jq -r '.products[] | select((.status // "active") == "active") | .id' \
         "$_REGISTRY" 2>/dev/null)
   for PID in $IDS; do
     PRODUCT="$PID" load_product_context
@@ -437,6 +402,5 @@ for_each_product() {
   done
 }
 
-# Load default product context at source time (can be re-called with a key hint)
+# Load default product context at source time
 load_product_context
-

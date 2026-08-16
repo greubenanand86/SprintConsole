@@ -1,18 +1,18 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "default": "sprintconsole",
   "products": [
     {
       "id": "sprintconsole",
       "name": "SprintConsole",
-      "jira_project": "SC",
+      "task_prefix": "SC",
       "config": "products/sprintconsole/config.env",
       "status": "active"
     },
     {
       "id": "pts",
       "name": "PTS",
-      "jira_project": "PTS",
+      "task_prefix": "PTS",
       "config": "products/pts/config.env",
       "status": "active"
     }
