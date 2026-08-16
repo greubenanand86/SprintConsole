@@ -8,6 +8,13 @@
       "jira_project": "SC",
       "config": "products/sprintconsole/config.env",
       "status": "active"
+    },
+    {
+      "id": "pts",
+      "name": "PTS",
+      "jira_project": "PTS",
+      "config": "products/pts/config.env",
+      "status": "active"
     }
   ]
 }
